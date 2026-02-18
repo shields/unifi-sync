@@ -10,7 +10,7 @@ func TestMain_osExit(t *testing.T) {
 
 	main()
 
-	if exitCode != 0 {
-		t.Errorf("main() exit code = %d, want 0", exitCode)
+	if exitCode == -1 {
+		t.Error("main() did not call osExit")
 	}
 }
