@@ -117,6 +117,79 @@ func TestInjectSecretsUnknownType(t *testing.T) {
 	}
 }
 
+func TestAnnotateSecretChangesDifferent(t *testing.T) {
+	local := map[string]any{"name": "Guest WiFi", "x_passphrase": redactedValue}
+	remote := map[string]any{"name": "Guest WiFi", "x_passphrase": "oldsecret"}
+	t.Setenv("UNIFI_SECRET_GUEST_WIFI_X_PASSPHRASE", "newsecret")
+
+	annotateSecretChanges(local, remote, "wlanconf", "guest-wifi")
+	if local["x_passphrase"] != redactedValue+" (changed)" {
+		t.Errorf("local x_passphrase = %v, want annotated changed", local["x_passphrase"])
+	}
+	if remote["x_passphrase"] != redactedValue {
+		t.Errorf("remote x_passphrase = %v, want redacted", remote["x_passphrase"])
+	}
+}
+
+func TestAnnotateSecretChangesSame(t *testing.T) {
+	local := map[string]any{"name": "Guest WiFi", "x_passphrase": redactedValue}
+	remote := map[string]any{"name": "Guest WiFi", "x_passphrase": "samesecret"}
+	t.Setenv("UNIFI_SECRET_GUEST_WIFI_X_PASSPHRASE", "samesecret")
+
+	annotateSecretChanges(local, remote, "wlanconf", "guest-wifi")
+	if local["x_passphrase"] != redactedValue {
+		t.Errorf("local x_passphrase = %v, want %q (no annotation)", local["x_passphrase"], redactedValue)
+	}
+	if remote["x_passphrase"] != redactedValue {
+		t.Errorf("remote x_passphrase = %v, want redacted", remote["x_passphrase"])
+	}
+}
+
+func TestAnnotateSecretChangesNoEnvVar(t *testing.T) {
+	local := map[string]any{"name": "Guest WiFi", "x_passphrase": redactedValue}
+	remote := map[string]any{"name": "Guest WiFi", "x_passphrase": "secret"}
+
+	annotateSecretChanges(local, remote, "wlanconf", "guest-wifi")
+	// Can't resolve, so no annotation
+	if local["x_passphrase"] != redactedValue {
+		t.Errorf("local x_passphrase = %v, want %q", local["x_passphrase"], redactedValue)
+	}
+	if remote["x_passphrase"] != redactedValue {
+		t.Errorf("remote x_passphrase = %v, want redacted", remote["x_passphrase"])
+	}
+}
+
+func TestAnnotateSecretChangesPlaintextLocal(t *testing.T) {
+	local := map[string]any{"name": "Guest WiFi", "x_passphrase": "newsecret"}
+	remote := map[string]any{"name": "Guest WiFi", "x_passphrase": "oldsecret"}
+
+	annotateSecretChanges(local, remote, "wlanconf", "guest-wifi")
+	if local["x_passphrase"] != redactedValue+" (changed)" {
+		t.Errorf("local x_passphrase = %v, want annotated changed", local["x_passphrase"])
+	}
+}
+
+func TestAnnotateSecretChangesNoSecretType(t *testing.T) {
+	local := map[string]any{"name": "HomeNet"}
+	remote := map[string]any{"name": "HomeNet"}
+	annotateSecretChanges(local, remote, "networkconf", "homenet")
+	if local["name"] != "HomeNet" {
+		t.Errorf("name was modified: %v", local["name"])
+	}
+}
+
+func TestAnnotateSecretChangesMissingField(t *testing.T) {
+	local := map[string]any{"name": "Guest WiFi"}
+	remote := map[string]any{"name": "Guest WiFi", "x_passphrase": "secret"}
+	annotateSecretChanges(local, remote, "wlanconf", "guest-wifi")
+	if _, ok := local["x_passphrase"]; ok {
+		t.Error("should not add x_passphrase to local if not present")
+	}
+	if remote["x_passphrase"] != redactedValue {
+		t.Errorf("remote x_passphrase = %v, want redacted", remote["x_passphrase"])
+	}
+}
+
 func TestSecretEnvVarName(t *testing.T) {
 	tests := []struct {
 		slug  string
