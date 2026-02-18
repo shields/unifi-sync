@@ -7,7 +7,7 @@ import (
 )
 
 var secretFields = map[string][]string{
-	"wlanconf": {"x_passphrase"},
+	"wlanconf": {"x_passphrase", "x_iapp_key", "x_wep", "x_wep_key", "x_radius_secret_1"},
 }
 
 const redactedValue = "__REDACTED__"

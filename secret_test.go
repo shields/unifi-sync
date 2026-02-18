@@ -19,6 +19,31 @@ func TestRedactSecrets(t *testing.T) {
 	}
 }
 
+func TestRedactSecretsAllFields(t *testing.T) {
+	obj := map[string]any{
+		"name":             "TestNet",
+		"x_passphrase":     "wifipass",
+		"x_iapp_key":       "iappkey123",
+		"x_wep":            "wepkey",
+		"x_wep_key":        "wepkey2",
+		"x_radius_secret_1": "radiussecret",
+		"x_iapp":           true,
+		"x_ccode":          "US",
+	}
+	redactSecrets(obj, "wlanconf")
+	for _, f := range []string{"x_passphrase", "x_iapp_key", "x_wep", "x_wep_key", "x_radius_secret_1"} {
+		if obj[f] != redactedValue {
+			t.Errorf("%s = %v, want %q", f, obj[f], redactedValue)
+		}
+	}
+	if obj["x_iapp"] != true {
+		t.Error("x_iapp (non-secret) was modified")
+	}
+	if obj["x_ccode"] != "US" {
+		t.Error("x_ccode (non-secret) was modified")
+	}
+}
+
 func TestRedactSecretsNoSecretFields(t *testing.T) {
 	obj := map[string]any{
 		"name": "LAN",
@@ -199,6 +224,10 @@ func TestSecretEnvVarName(t *testing.T) {
 		{"homenet-wifi", "x_passphrase", "UNIFI_SECRET_HOMENET_WIFI_X_PASSPHRASE"},
 		{"guest-network", "x_passphrase", "UNIFI_SECRET_GUEST_NETWORK_X_PASSPHRASE"},
 		{"msrl", "x_passphrase", "UNIFI_SECRET_MSRL_X_PASSPHRASE"},
+		{"corp-wifi", "x_iapp_key", "UNIFI_SECRET_CORP_WIFI_X_IAPP_KEY"},
+		{"legacy-net", "x_wep", "UNIFI_SECRET_LEGACY_NET_X_WEP"},
+		{"legacy-net", "x_wep_key", "UNIFI_SECRET_LEGACY_NET_X_WEP_KEY"},
+		{"corp-wifi", "x_radius_secret_1", "UNIFI_SECRET_CORP_WIFI_X_RADIUS_SECRET_1"},
 	}
 	for _, tt := range tests {
 		got := secretEnvVar(tt.slug, tt.field)
