@@ -69,6 +69,8 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return 2
 	}
 
+	color := os.Getenv("TERM") != "" && os.Getenv("NO_COLOR") == ""
+
 	switch cmd {
 	case "pull":
 		if err := cmdPull(ctx, c, site, configDir, typeFilter, stdout); err != nil {
@@ -76,12 +78,16 @@ func run(args []string, stdout, stderr io.Writer) int {
 			return 2
 		}
 	case "push":
-		if err := cmdPush(ctx, c, site, configDir, typeFilter, dryRun, stdout); err != nil {
+		hasDiffs, err := cmdPush(ctx, c, site, configDir, typeFilter, dryRun, color, stdout)
+		if err != nil {
 			fmt.Fprintln(stderr, err)
 			return 2
 		}
+		if hasDiffs {
+			fmt.Fprintln(stderr, "push succeeded but verification found differences")
+			return 1
+		}
 	case "diff":
-		color := os.Getenv("TERM") != "" && os.Getenv("NO_COLOR") == ""
 		hasDiffs, err := cmdDiff(ctx, c, site, configDir, typeFilter, color, stdout)
 		if err != nil {
 			fmt.Fprintln(stderr, err)

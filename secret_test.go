@@ -21,14 +21,14 @@ func TestRedactSecrets(t *testing.T) {
 
 func TestRedactSecretsAllFields(t *testing.T) {
 	obj := map[string]any{
-		"name":             "TestNet",
-		"x_passphrase":     "wifipass",
-		"x_iapp_key":       "iappkey123",
-		"x_wep":            "wepkey",
-		"x_wep_key":        "wepkey2",
+		"name":              "TestNet",
+		"x_passphrase":      "wifipass",
+		"x_iapp_key":        "iappkey123",
+		"x_wep":             "wepkey",
+		"x_wep_key":         "wepkey2",
 		"x_radius_secret_1": "radiussecret",
-		"x_iapp":           true,
-		"x_ccode":          "US",
+		"x_iapp":            true,
+		"x_ccode":           "US",
 	}
 	redactSecrets(obj, "wlanconf")
 	for _, f := range []string{"x_passphrase", "x_iapp_key", "x_wep", "x_wep_key", "x_radius_secret_1"} {

@@ -217,7 +217,7 @@ func TestCmdPushUpdate(t *testing.T) {
 			w.Write(unifiResponse([]map[string]any{putBody}))
 			return
 		}
-		w.WriteHeader(http.StatusNotFound)
+		w.Write(unifiResponse([]map[string]any{{"_id": "abc123", "name": "HomeNet"}}))
 	}))
 	defer srv.Close()
 
@@ -228,15 +228,22 @@ func TestCmdPushUpdate(t *testing.T) {
 
 	c := newClient(srv.URL, false)
 	var buf bytes.Buffer
-	err := cmdPush(context.Background(), c, "default", dir, "networkconf", false, &buf)
+	hasDiffs, err := cmdPush(context.Background(), c, "default", dir, "networkconf", false, false, &buf)
 	if err != nil {
 		t.Fatalf("cmdPush() error = %v", err)
+	}
+	if hasDiffs {
+		t.Errorf("hasDiffs = true, want false")
 	}
 	if putPath != "/api/s/default/rest/networkconf/abc123" {
 		t.Errorf("PUT path = %q", putPath)
 	}
-	if !strings.Contains(buf.String(), "updated networkconf/homenet") {
-		t.Errorf("output = %q", buf.String())
+	out := buf.String()
+	if !strings.Contains(out, "updated networkconf/homenet") {
+		t.Errorf("output = %q", out)
+	}
+	if !strings.Contains(out, "verifying...") || !strings.Contains(out, "verified") {
+		t.Errorf("output missing verification messages: %q", out)
 	}
 }
 
@@ -245,10 +252,8 @@ func TestCmdPushCreate(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPost {
 			postPath = r.URL.Path
-			w.Write(unifiResponse([]map[string]any{{"_id": "new1", "name": "HomeNet"}}))
-			return
 		}
-		w.WriteHeader(http.StatusNotFound)
+		w.Write(unifiResponse([]map[string]any{{"_id": "new1", "name": "HomeNet"}}))
 	}))
 	defer srv.Close()
 
@@ -259,9 +264,12 @@ func TestCmdPushCreate(t *testing.T) {
 
 	c := newClient(srv.URL, false)
 	var buf bytes.Buffer
-	err := cmdPush(context.Background(), c, "default", dir, "networkconf", false, &buf)
+	hasDiffs, err := cmdPush(context.Background(), c, "default", dir, "networkconf", false, false, &buf)
 	if err != nil {
 		t.Fatalf("cmdPush() error = %v", err)
+	}
+	if hasDiffs {
+		t.Errorf("hasDiffs = true, want false")
 	}
 	if postPath != "/api/s/default/rest/networkconf" {
 		t.Errorf("POST path = %q", postPath)
@@ -294,7 +302,7 @@ func TestCmdPushCreatePreservesRedacted(t *testing.T) {
 	t.Setenv("UNIFI_SECRET_GUEST_WIFI_X_PASSPHRASE", "mypass")
 
 	c := newClient(srv.URL, false)
-	err := cmdPush(context.Background(), c, "default", dir, "wlanconf", false, io.Discard)
+	_, err := cmdPush(context.Background(), c, "default", dir, "wlanconf", false, false, io.Discard)
 	if err != nil {
 		t.Fatalf("cmdPush() error = %v", err)
 	}
@@ -327,7 +335,7 @@ func TestCmdPushCreateWriteBackError(t *testing.T) {
 	t.Cleanup(func() { os.Chmod(filePath, 0o644) })
 
 	c := newClient(srv.URL, false)
-	err := cmdPush(context.Background(), c, "default", dir, "networkconf", false, io.Discard)
+	_, err := cmdPush(context.Background(), c, "default", dir, "networkconf", false, false, io.Discard)
 	if err == nil {
 		t.Error("cmdPush() should return error on write-back failure")
 	}
@@ -346,12 +354,19 @@ func TestCmdPushDryRunUpdate(t *testing.T) {
 
 	c := newClient(srv.URL, false)
 	var buf bytes.Buffer
-	err := cmdPush(context.Background(), c, "default", dir, "networkconf", true, &buf)
+	hasDiffs, err := cmdPush(context.Background(), c, "default", dir, "networkconf", true, false, &buf)
 	if err != nil {
 		t.Fatalf("cmdPush() error = %v", err)
 	}
-	if !strings.Contains(buf.String(), "would update networkconf/homenet") {
-		t.Errorf("output = %q", buf.String())
+	if hasDiffs {
+		t.Errorf("hasDiffs = true, want false for dry-run")
+	}
+	out := buf.String()
+	if !strings.Contains(out, "would update networkconf/homenet") {
+		t.Errorf("output = %q", out)
+	}
+	if strings.Contains(out, "verifying") {
+		t.Errorf("dry-run should skip verification, got %q", out)
 	}
 }
 
@@ -368,9 +383,12 @@ func TestCmdPushDryRunCreate(t *testing.T) {
 
 	c := newClient(srv.URL, false)
 	var buf bytes.Buffer
-	err := cmdPush(context.Background(), c, "default", dir, "networkconf", true, &buf)
+	hasDiffs, err := cmdPush(context.Background(), c, "default", dir, "networkconf", true, false, &buf)
 	if err != nil {
 		t.Fatalf("cmdPush() error = %v", err)
+	}
+	if hasDiffs {
+		t.Errorf("hasDiffs = true, want false for dry-run")
 	}
 	if !strings.Contains(buf.String(), "would create networkconf/homenet") {
 		t.Errorf("output = %q", buf.String())
@@ -386,7 +404,9 @@ func TestCmdPushInjectSecrets(t *testing.T) {
 			w.Write(unifiResponse([]map[string]any{putBody}))
 			return
 		}
-		w.WriteHeader(http.StatusNotFound)
+		w.Write(unifiResponse([]map[string]any{
+			{"_id": "w1", "name": "Guest WiFi", "x_passphrase": "mysecretpass"},
+		}))
 	}))
 	defer srv.Close()
 
@@ -398,7 +418,7 @@ func TestCmdPushInjectSecrets(t *testing.T) {
 	t.Setenv("UNIFI_SECRET_GUEST_WIFI_X_PASSPHRASE", "mysecretpass")
 
 	c := newClient(srv.URL, false)
-	err := cmdPush(context.Background(), c, "default", dir, "wlanconf", false, io.Discard)
+	_, err := cmdPush(context.Background(), c, "default", dir, "wlanconf", false, false, io.Discard)
 	if err != nil {
 		t.Fatalf("cmdPush() error = %v", err)
 	}
@@ -414,7 +434,7 @@ func TestCmdPushMissingSecret(t *testing.T) {
 	})
 
 	c := newClient("http://example.com", false)
-	err := cmdPush(context.Background(), c, "default", dir, "wlanconf", false, io.Discard)
+	_, err := cmdPush(context.Background(), c, "default", dir, "wlanconf", false, false, io.Discard)
 	if err == nil {
 		t.Error("cmdPush() should return error for missing secret env var")
 	}
@@ -433,7 +453,7 @@ func TestCmdPushPutError(t *testing.T) {
 	})
 
 	c := newClient(srv.URL, false)
-	err := cmdPush(context.Background(), c, "default", dir, "networkconf", false, io.Discard)
+	_, err := cmdPush(context.Background(), c, "default", dir, "networkconf", false, false, io.Discard)
 	if err == nil {
 		t.Error("cmdPush() should return error on PUT failure")
 	}
@@ -452,7 +472,7 @@ func TestCmdPushPostError(t *testing.T) {
 	})
 
 	c := newClient(srv.URL, false)
-	err := cmdPush(context.Background(), c, "default", dir, "networkconf", false, io.Discard)
+	_, err := cmdPush(context.Background(), c, "default", dir, "networkconf", false, false, io.Discard)
 	if err == nil {
 		t.Error("cmdPush() should return error on POST failure")
 	}
@@ -460,7 +480,7 @@ func TestCmdPushPostError(t *testing.T) {
 
 func TestCmdPushInvalidType(t *testing.T) {
 	c := newClient("http://example.com", false)
-	err := cmdPush(context.Background(), c, "default", t.TempDir(), "badtype", false, io.Discard)
+	_, err := cmdPush(context.Background(), c, "default", t.TempDir(), "badtype", false, false, io.Discard)
 	if err == nil {
 		t.Error("cmdPush(badtype) should return error")
 	}
@@ -474,22 +494,99 @@ func TestCmdPushReadError(t *testing.T) {
 	t.Cleanup(func() { os.Chmod(subdir, 0o755) })
 
 	c := newClient("http://example.com", false)
-	err := cmdPush(context.Background(), c, "default", dir, "networkconf", false, io.Discard)
+	_, err := cmdPush(context.Background(), c, "default", dir, "networkconf", false, false, io.Discard)
 	if err == nil {
 		t.Error("cmdPush() should return error on read failure")
 	}
 }
 
 func TestCmdPushEmptyDir(t *testing.T) {
+	srv := httptest.NewServer(testMux(map[string][]map[string]any{
+		"/rest/networkconf": {},
+	}))
+	defer srv.Close()
+
 	dir := t.TempDir()
-	c := newClient("http://example.com", false)
+	c := newClient(srv.URL, false)
 	var buf bytes.Buffer
-	err := cmdPush(context.Background(), c, "default", dir, "networkconf", false, &buf)
+	hasDiffs, err := cmdPush(context.Background(), c, "default", dir, "networkconf", false, false, &buf)
 	if err != nil {
 		t.Fatalf("cmdPush() error = %v", err)
 	}
-	if buf.Len() != 0 {
-		t.Errorf("output should be empty for missing config dir, got %q", buf.String())
+	if hasDiffs {
+		t.Errorf("hasDiffs = true, want false")
+	}
+	out := buf.String()
+	if !strings.Contains(out, "verifying...") || !strings.Contains(out, "verified") {
+		t.Errorf("output = %q, want verifying/verified messages", out)
+	}
+}
+
+func TestCmdPushVerificationDiffs(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPut {
+			w.Write(unifiResponse([]map[string]any{}))
+			return
+		}
+		// Verification GET returns modified data
+		w.Write(unifiResponse([]map[string]any{
+			{"_id": "abc123", "name": "HomeNet", "extra_field": "added-by-controller"},
+		}))
+	}))
+	defer srv.Close()
+
+	dir := t.TempDir()
+	writeConfigFile(dir, "networkconf", "homenet", map[string]any{
+		"_id": "abc123", "name": "HomeNet",
+	})
+
+	c := newClient(srv.URL, false)
+	var buf bytes.Buffer
+	hasDiffs, err := cmdPush(context.Background(), c, "default", dir, "networkconf", false, false, &buf)
+	if err != nil {
+		t.Fatalf("cmdPush() error = %v", err)
+	}
+	if !hasDiffs {
+		t.Error("hasDiffs = false, want true")
+	}
+	out := buf.String()
+	if !strings.Contains(out, "verifying...") {
+		t.Errorf("output missing verifying: %q", out)
+	}
+	if strings.Contains(out, "verified") {
+		t.Errorf("output should not contain verified when diffs found: %q", out)
+	}
+	if !strings.Contains(out, "---") || !strings.Contains(out, "+++") {
+		t.Errorf("output missing diff markers: %q", out)
+	}
+}
+
+func TestCmdPushVerificationError(t *testing.T) {
+	var requestCount int
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requestCount++
+		if r.Method == http.MethodPut {
+			w.Write(unifiResponse([]map[string]any{}))
+			return
+		}
+		// Verification GET fails
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("server error"))
+	}))
+	defer srv.Close()
+
+	dir := t.TempDir()
+	writeConfigFile(dir, "networkconf", "homenet", map[string]any{
+		"_id": "abc123", "name": "HomeNet",
+	})
+
+	c := newClient(srv.URL, false)
+	_, err := cmdPush(context.Background(), c, "default", dir, "networkconf", false, false, io.Discard)
+	if err == nil {
+		t.Fatal("cmdPush() should return error on verification failure")
+	}
+	if !strings.Contains(err.Error(), "post-push verification:") {
+		t.Errorf("error = %v, want post-push verification prefix", err)
 	}
 }
 

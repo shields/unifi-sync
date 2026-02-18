@@ -59,15 +59,17 @@ func cmdPull(ctx context.Context, c *client, site, configDir, filterType string,
 // cmdPush reads local config files, injects secrets, and sends them to the
 // controller. _id present → PUT (update), _id absent → POST (create).
 // After POST, the server response is written back to capture the _id.
-func cmdPush(ctx context.Context, c *client, site, configDir, filterType string, dryRun bool, w io.Writer) error {
+// After a successful push, it pulls back and diffs to verify the controller
+// accepted the configuration as-is. Returns true if verification found diffs.
+func cmdPush(ctx context.Context, c *client, site, configDir, filterType string, dryRun, color bool, w io.Writer) (bool, error) {
 	types, err := selectedTypes(filterType)
 	if err != nil {
-		return err
+		return false, err
 	}
 	for _, rt := range types {
 		files, err := readConfigFiles(configDir, rt)
 		if err != nil {
-			return err
+			return false, err
 		}
 		slugs := make([]string, 0, len(files))
 		for slug := range files {
@@ -80,7 +82,7 @@ func cmdPush(ctx context.Context, c *client, site, configDir, filterType string,
 			apiObj := make(map[string]any, len(obj))
 			maps.Copy(apiObj, obj)
 			if err := injectSecrets(apiObj, rt, slug); err != nil {
-				return err
+				return false, err
 			}
 			id, _ := apiObj["_id"].(string)
 			if id != "" {
@@ -88,7 +90,7 @@ func cmdPush(ctx context.Context, c *client, site, configDir, filterType string,
 					fmt.Fprintf(w, "would update %s/%s\n", rt, slug)
 				} else {
 					if err := c.put(ctx, site, rt, id, apiObj); err != nil {
-						return err
+						return false, err
 					}
 					fmt.Fprintf(w, "updated %s/%s\n", rt, slug)
 				}
@@ -98,19 +100,30 @@ func cmdPush(ctx context.Context, c *client, site, configDir, filterType string,
 				} else {
 					created, err := c.post(ctx, site, rt, apiObj)
 					if err != nil {
-						return err
+						return false, err
 					}
 					// Merge _id into original local object (preserves __REDACTED__)
 					obj["_id"] = created["_id"]
 					if err := writeConfigFile(configDir, rt, slug, obj); err != nil {
-						return err
+						return false, err
 					}
 					fmt.Fprintf(w, "created %s/%s\n", rt, slug)
 				}
 			}
 		}
 	}
-	return nil
+	if dryRun {
+		return false, nil
+	}
+	fmt.Fprintln(w, "verifying...")
+	hasDiffs, err := cmdDiff(ctx, c, site, configDir, filterType, color, w)
+	if err != nil {
+		return false, fmt.Errorf("post-push verification: %w", err)
+	}
+	if !hasDiffs {
+		fmt.Fprintln(w, "verified")
+	}
+	return hasDiffs, nil
 }
 
 func cmdDiff(ctx context.Context, c *client, site, configDir, filterType string, color bool, w io.Writer) (bool, error) {

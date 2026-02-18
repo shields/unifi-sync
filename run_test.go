@@ -166,7 +166,9 @@ func TestRunPullError(t *testing.T) {
 }
 
 func TestRunPush(t *testing.T) {
-	srv := httptest.NewServer(loginMux(map[string][]map[string]any{}))
+	srv := httptest.NewServer(loginMux(map[string][]map[string]any{
+		"/rest/networkconf": {{"_id": "abc123", "name": "HomeNet"}},
+	}))
 	defer srv.Close()
 
 	setRequiredEnv(t, srv.URL)
@@ -180,8 +182,12 @@ func TestRunPush(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("run(push) = %d, stderr: %s", code, stderr.String())
 	}
-	if !strings.Contains(stdout.String(), "updated networkconf/homenet") {
-		t.Errorf("stdout = %q", stdout.String())
+	out := stdout.String()
+	if !strings.Contains(out, "updated networkconf/homenet") {
+		t.Errorf("stdout = %q", out)
+	}
+	if !strings.Contains(out, "verified") {
+		t.Errorf("stdout missing verified: %q", out)
 	}
 }
 
@@ -217,6 +223,28 @@ func TestRunPushError(t *testing.T) {
 	code = run([]string{"push", "-type", "badtype"}, &stdout, &stderr)
 	if code != 2 {
 		t.Errorf("run(push error) = %d, want 2", code)
+	}
+}
+
+func TestRunPushVerificationDiffs(t *testing.T) {
+	srv := httptest.NewServer(loginMux(map[string][]map[string]any{
+		"/rest/networkconf": {{"_id": "abc123", "name": "HomeNet", "extra": "field"}},
+	}))
+	defer srv.Close()
+
+	setRequiredEnv(t, srv.URL)
+	dir := t.TempDir()
+	writeConfigFile(dir, "networkconf", "homenet", map[string]any{
+		"_id": "abc123", "name": "HomeNet",
+	})
+
+	var stdout, stderr bytes.Buffer
+	code := run([]string{"push", "-config", dir, "-type", "networkconf"}, &stdout, &stderr)
+	if code != 1 {
+		t.Errorf("run(push verification diffs) = %d, want 1, stderr: %s", code, stderr.String())
+	}
+	if !strings.Contains(stderr.String(), "push succeeded but verification found differences") {
+		t.Errorf("stderr = %q, want verification message", stderr.String())
 	}
 }
 
