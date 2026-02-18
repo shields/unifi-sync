@@ -15,6 +15,18 @@ go vet ./...                # Static analysis
 gofmt -l *.go               # Check formatting
 ```
 
+## After Every Change
+
+After any code change, run format/lint and tests before considering the work done:
+
+```bash
+gofmt -w *.go               # Format code
+go vet ./...                 # Lint / static analysis
+go test -cover ./...         # Run tests and verify 100.0% coverage
+```
+
+All three must pass cleanly. Test coverage must remain at 100.0% of statements — add or update tests as needed to maintain this.
+
 ## Architecture
 
 unifi-sync is a CLI tool that synchronizes UniFi network controller configurations to/from local JSON files. It uses only Go standard library (zero external dependencies) and lives in a single package.
@@ -28,7 +40,7 @@ The controller API returns resources wrapped in `{"meta":{...},"data":[...]}` en
 - **`run.go`** — CLI entry point: flag parsing, command dispatch, exit codes (0=success, 1=diff found, 2=error)
 - **`commands.go`** — `cmdPull`, `cmdPush`, `cmdDiff` orchestration
 - **`client.go`** — HTTP client with cookie-jar auth, CSRF token (thread-safe via RWMutex), TLS/proxy support
-- **`secret.go`** — Redacts secrets on pull, injects from env vars on push. Secret fields are hardcoded (currently `wlanconf.x_passphrase`)
+- **`secret.go`** — Redacts secrets on pull, injects from env vars on push. Secret fields are hardcoded in `secretFields` (e.g. `x_passphrase`, `x_iapp_key`, `x_wep`, `x_wep_key`, `x_radius_secret_1`)
 - **`diff.go`** — LCS-based line diff with ANSI color support
 - **`config.go`** — Reads/writes per-resource JSON files organized by type and slug
 - **`json.go`** — JSON helpers using `json.Number` to preserve numeric precision
