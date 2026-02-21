@@ -52,6 +52,36 @@ func TestRunNoArgs(t *testing.T) {
 	}
 }
 
+func TestRunHelp(t *testing.T) {
+	for _, arg := range []string{"-h", "-help", "--help", "help"} {
+		t.Run(arg, func(t *testing.T) {
+			var stdout, stderr bytes.Buffer
+			code := run([]string{arg}, &stdout, &stderr)
+			if code != 0 {
+				t.Errorf("run(%s) = %d, want 0", arg, code)
+			}
+			if !strings.Contains(stdout.String(), "usage:") {
+				t.Errorf("stdout = %q, want usage message", stdout.String())
+			}
+		})
+	}
+}
+
+func TestRunSubcommandHelp(t *testing.T) {
+	for _, cmd := range []string{"pull", "push", "diff"} {
+		t.Run(cmd, func(t *testing.T) {
+			var stdout, stderr bytes.Buffer
+			code := run([]string{cmd, "-help"}, &stdout, &stderr)
+			if code != 0 {
+				t.Errorf("run(%s -help) = %d, want 0", cmd, code)
+			}
+			if !strings.Contains(stdout.String(), "-config") {
+				t.Errorf("run(%s -help) stdout = %q, want flag usage", cmd, stdout.String())
+			}
+		})
+	}
+}
+
 func TestRunUnknownCommand(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run([]string{"badcmd"}, &stdout, &stderr)
