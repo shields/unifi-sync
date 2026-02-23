@@ -4,7 +4,12 @@ Synchronize UniFi network controller configurations to and from local JSON
 files. Supports pulling config snapshots, pushing changes back, and diffing
 local versus remote state.
 
-Built with zero external dependencies — Go standard library only.
+This tool operates on complete configs, so unlike Terraform/OpenTofu providers,
+it does not require updating for new fields, and it cannot clobber unknown
+fields when writing back. It reads back the config after each write in
+order to verify that there are no diffs.
+
+It typically operates in under 500 ms per device.
 
 ## Install
 
