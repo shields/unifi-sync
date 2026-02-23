@@ -33,7 +33,7 @@ unifi-sync is a CLI tool that synchronizes UniFi network controller configuratio
 
 ### Data Flow
 
-The controller API returns resources wrapped in `{"meta":{...},"data":[...]}` envelopes. On **pull**, resources are fetched, secrets are redacted (replaced with `"__REDACTED__"`), and each resource is written to `<configDir>/<resourceType>/<slug>.json`. On **push**, local files are read, secrets are injected from environment variables (`UNIFI_SECRET_<SLUG>_<FIELD>`), and resources are PUT (update) or POST (create, when `_id` is absent). On **diff**, local and remote are compared with secrets handled specially.
+The controller API returns resources wrapped in `{"meta":{...},"data":[...]}` envelopes. On **pull**, resources are fetched, secrets are redacted (replaced with `"__REDACTED__"`), and each resource is written to `<configDir>/<resourceType>/<slug>.json`. On **push**, local files are read, secrets are injected from environment variables (`UNIFI_SYNC_SECRET_<SLUG>_<FIELD>`), and resources are PUT (update) or POST (create, when `_id` is absent). On **diff**, local and remote are compared with secrets handled specially.
 
 ### Key Components
 
@@ -53,5 +53,5 @@ Tests use `httptest.NewServer` for mock API servers and table-driven test patter
 
 ### Environment Variables
 
-Required: `UNIFI_URL`, `UNIFI_USERNAME`, `UNIFI_PASSWORD`
-Optional: `UNIFI_SITE` (default: "default"), `UNIFI_INSECURE` ("true" to skip TLS verify), `TERM`/`NO_COLOR` (color control)
+Required: `UNIFI_SYNC_URL`, `UNIFI_SYNC_USERNAME`, `UNIFI_SYNC_PASSWORD`
+Optional: `UNIFI_SYNC_SITE` (default: "default"), `UNIFI_SYNC_INSECURE_SKIP_TLS_VERIFY` ("true" to skip TLS verify), `TERM`/`NO_COLOR` (color control)

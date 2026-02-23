@@ -76,7 +76,7 @@ func TestInjectSecrets(t *testing.T) {
 		"name":         "HomeNet WiFi",
 		"x_passphrase": redactedValue,
 	}
-	t.Setenv("UNIFI_SECRET_HOMENET_WIFI_X_PASSPHRASE", "injected123")
+	t.Setenv("UNIFI_SYNC_SECRET_HOMENET_WIFI_X_PASSPHRASE", "injected123")
 
 	err := injectSecrets(obj, "wlanconf", "homenet-wifi")
 	if err != nil {
@@ -145,7 +145,7 @@ func TestInjectSecretsUnknownType(t *testing.T) {
 func TestAnnotateSecretChangesDifferent(t *testing.T) {
 	local := map[string]any{"name": "Guest WiFi", "x_passphrase": redactedValue}
 	remote := map[string]any{"name": "Guest WiFi", "x_passphrase": "oldsecret"}
-	t.Setenv("UNIFI_SECRET_GUEST_WIFI_X_PASSPHRASE", "newsecret")
+	t.Setenv("UNIFI_SYNC_SECRET_GUEST_WIFI_X_PASSPHRASE", "newsecret")
 
 	annotateSecretChanges(local, remote, "wlanconf", "guest-wifi")
 	if local["x_passphrase"] != redactedValue+" (changed)" {
@@ -159,7 +159,7 @@ func TestAnnotateSecretChangesDifferent(t *testing.T) {
 func TestAnnotateSecretChangesSame(t *testing.T) {
 	local := map[string]any{"name": "Guest WiFi", "x_passphrase": redactedValue}
 	remote := map[string]any{"name": "Guest WiFi", "x_passphrase": "samesecret"}
-	t.Setenv("UNIFI_SECRET_GUEST_WIFI_X_PASSPHRASE", "samesecret")
+	t.Setenv("UNIFI_SYNC_SECRET_GUEST_WIFI_X_PASSPHRASE", "samesecret")
 
 	annotateSecretChanges(local, remote, "wlanconf", "guest-wifi")
 	if local["x_passphrase"] != redactedValue {
@@ -221,13 +221,13 @@ func TestSecretEnvVarName(t *testing.T) {
 		field string
 		want  string
 	}{
-		{"homenet-wifi", "x_passphrase", "UNIFI_SECRET_HOMENET_WIFI_X_PASSPHRASE"},
-		{"guest-network", "x_passphrase", "UNIFI_SECRET_GUEST_NETWORK_X_PASSPHRASE"},
-		{"msrl", "x_passphrase", "UNIFI_SECRET_MSRL_X_PASSPHRASE"},
-		{"corp-wifi", "x_iapp_key", "UNIFI_SECRET_CORP_WIFI_X_IAPP_KEY"},
-		{"legacy-net", "x_wep", "UNIFI_SECRET_LEGACY_NET_X_WEP"},
-		{"legacy-net", "x_wep_key", "UNIFI_SECRET_LEGACY_NET_X_WEP_KEY"},
-		{"corp-wifi", "x_radius_secret_1", "UNIFI_SECRET_CORP_WIFI_X_RADIUS_SECRET_1"},
+		{"homenet-wifi", "x_passphrase", "UNIFI_SYNC_SECRET_HOMENET_WIFI_X_PASSPHRASE"},
+		{"guest-network", "x_passphrase", "UNIFI_SYNC_SECRET_GUEST_NETWORK_X_PASSPHRASE"},
+		{"msrl", "x_passphrase", "UNIFI_SYNC_SECRET_MSRL_X_PASSPHRASE"},
+		{"corp-wifi", "x_iapp_key", "UNIFI_SYNC_SECRET_CORP_WIFI_X_IAPP_KEY"},
+		{"legacy-net", "x_wep", "UNIFI_SYNC_SECRET_LEGACY_NET_X_WEP"},
+		{"legacy-net", "x_wep_key", "UNIFI_SYNC_SECRET_LEGACY_NET_X_WEP_KEY"},
+		{"corp-wifi", "x_radius_secret_1", "UNIFI_SYNC_SECRET_CORP_WIFI_X_RADIUS_SECRET_1"},
 	}
 	for _, tt := range tests {
 		got := secretEnvVar(tt.slug, tt.field)

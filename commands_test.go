@@ -299,7 +299,7 @@ func TestCmdPushCreatePreservesRedacted(t *testing.T) {
 	writeConfigFile(dir, "wlanconf", "guest-wifi", map[string]any{
 		"name": "Guest WiFi", "x_passphrase": redactedValue,
 	})
-	t.Setenv("UNIFI_SECRET_GUEST_WIFI_X_PASSPHRASE", "mypass")
+	t.Setenv("UNIFI_SYNC_SECRET_GUEST_WIFI_X_PASSPHRASE", "mypass")
 
 	c := newClient(srv.URL, false)
 	_, err := cmdPush(context.Background(), c, "default", dir, "wlanconf", false, false, io.Discard)
@@ -415,7 +415,7 @@ func TestCmdPushInjectSecrets(t *testing.T) {
 		"_id": "w1", "name": "Guest WiFi", "x_passphrase": redactedValue,
 	})
 
-	t.Setenv("UNIFI_SECRET_GUEST_WIFI_X_PASSPHRASE", "mysecretpass")
+	t.Setenv("UNIFI_SYNC_SECRET_GUEST_WIFI_X_PASSPHRASE", "mysecretpass")
 
 	c := newClient(srv.URL, false)
 	_, err := cmdPush(context.Background(), c, "default", dir, "wlanconf", false, false, io.Discard)
@@ -724,7 +724,7 @@ func TestCmdDiffSecretChanged(t *testing.T) {
 
 	dir := t.TempDir()
 	writeConfigFile(dir, "wlanconf", "guest-wifi", local)
-	t.Setenv("UNIFI_SECRET_GUEST_WIFI_X_PASSPHRASE", "newsecret")
+	t.Setenv("UNIFI_SYNC_SECRET_GUEST_WIFI_X_PASSPHRASE", "newsecret")
 
 	c := newClient(srv.URL, false)
 	var buf bytes.Buffer

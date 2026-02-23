@@ -109,5 +109,5 @@ func annotateSecretChanges(local, remote map[string]any, resourceType, slug stri
 func secretEnvVar(slug, field string) string {
 	slugPart := strings.ToUpper(strings.ReplaceAll(slug, "-", "_"))
 	fieldPart := strings.ToUpper(field)
-	return "UNIFI_SECRET_" + slugPart + "_" + fieldPart
+	return "UNIFI_SYNC_SECRET_" + slugPart + "_" + fieldPart
 }

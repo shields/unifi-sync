@@ -27,12 +27,12 @@ Push-only flags:
   -dry-run         show planned changes without executing
 
 Environment variables:
-  UNIFI_URL        controller URL (required)
-  UNIFI_USERNAME   login username (required)
-  UNIFI_PASSWORD   login password (required)
-  UNIFI_SITE       site name (default "default")
-  UNIFI_INSECURE   set "true" to skip TLS verification
-  NO_COLOR         disable colored output
+  UNIFI_SYNC_URL                       controller URL (required)
+  UNIFI_SYNC_USERNAME                  login username (required)
+  UNIFI_SYNC_PASSWORD                  login password (required)
+  UNIFI_SYNC_SITE                      site name (default "default")
+  UNIFI_SYNC_INSECURE_SKIP_TLS_VERIFY  set "true" to skip TLS verification
+  NO_COLOR                             disable colored output
 `)
 }
 
@@ -84,7 +84,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 	}
 
 	var missing []string
-	for _, name := range []string{"UNIFI_URL", "UNIFI_USERNAME", "UNIFI_PASSWORD"} {
+	for _, name := range []string{"UNIFI_SYNC_URL", "UNIFI_SYNC_USERNAME", "UNIFI_SYNC_PASSWORD"} {
 		if os.Getenv(name) == "" {
 			missing = append(missing, name)
 		}
@@ -94,15 +94,15 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return 2
 	}
 
-	site := os.Getenv("UNIFI_SITE")
+	site := os.Getenv("UNIFI_SYNC_SITE")
 	if site == "" {
 		site = "default"
 	}
-	insecure := os.Getenv("UNIFI_INSECURE") == "true"
+	insecure := os.Getenv("UNIFI_SYNC_INSECURE_SKIP_TLS_VERIFY") == "true"
 
 	ctx := context.Background()
-	c := newClient(os.Getenv("UNIFI_URL"), insecure)
-	if err := c.login(ctx, os.Getenv("UNIFI_USERNAME"), os.Getenv("UNIFI_PASSWORD")); err != nil {
+	c := newClient(os.Getenv("UNIFI_SYNC_URL"), insecure)
+	if err := c.login(ctx, os.Getenv("UNIFI_SYNC_USERNAME"), os.Getenv("UNIFI_SYNC_PASSWORD")); err != nil {
 		fmt.Fprintln(stderr, err)
 		return 2
 	}

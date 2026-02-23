@@ -25,9 +25,9 @@ go build
 Create a `.env` file with your controller credentials:
 
 ```env
-UNIFI_URL=https://192.168.1.1:8443
-UNIFI_USERNAME=admin
-UNIFI_PASSWORD=secretpass
+UNIFI_SYNC_URL=https://192.168.1.1:8443
+UNIFI_SYNC_USERNAME=admin
+UNIFI_SYNC_PASSWORD=secretpass
 ```
 
 Pull the current configuration:
@@ -92,11 +92,11 @@ Push-only:
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `UNIFI_URL` | Yes | Controller URL (e.g. `https://192.168.1.1:8443`) |
-| `UNIFI_USERNAME` | Yes | Login username |
-| `UNIFI_PASSWORD` | Yes | Login password |
-| `UNIFI_SITE` | No | Site name (default: `default`) |
-| `UNIFI_INSECURE` | No | Set `true` to skip TLS certificate verification |
+| `UNIFI_SYNC_URL` | Yes | Controller URL (e.g. `https://192.168.1.1:8443`) |
+| `UNIFI_SYNC_USERNAME` | Yes | Login username |
+| `UNIFI_SYNC_PASSWORD` | Yes | Login password |
+| `UNIFI_SYNC_SITE` | No | Site name (default: `default`) |
+| `UNIFI_SYNC_INSECURE_SKIP_TLS_VERIFY` | No | Set `true` to skip TLS certificate verification |
 | `NO_COLOR` | No | Disable colored diff output |
 
 A `.env` file in the current directory is loaded automatically. Variables
@@ -111,14 +111,14 @@ On push, secrets are injected from environment variables following the naming
 convention:
 
 ```
-UNIFI_SECRET_<SLUG>_<FIELD>
+UNIFI_SYNC_SECRET_<SLUG>_<FIELD>
 ```
 
 For example, a network with slug `home-wifi` and field `x_passphrase` reads
 from:
 
 ```
-UNIFI_SECRET_HOME_WIFI_X_PASSPHRASE=actualpassword
+UNIFI_SYNC_SECRET_HOME_WIFI_X_PASSPHRASE=actualpassword
 ```
 
 On diff, if a secret's effective value (from the environment) differs from the

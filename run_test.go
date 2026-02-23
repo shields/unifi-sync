@@ -13,9 +13,9 @@ import (
 )
 
 func setRequiredEnv(t *testing.T, url string) {
-	t.Setenv("UNIFI_URL", url)
-	t.Setenv("UNIFI_USERNAME", "admin")
-	t.Setenv("UNIFI_PASSWORD", "pass")
+	t.Setenv("UNIFI_SYNC_URL", url)
+	t.Setenv("UNIFI_SYNC_USERNAME", "admin")
+	t.Setenv("UNIFI_SYNC_PASSWORD", "pass")
 }
 
 func loginMux(responses map[string][]map[string]any) http.Handler {
@@ -99,19 +99,19 @@ func TestRunMissingEnvVars(t *testing.T) {
 	if code != 2 {
 		t.Errorf("run(missing env) = %d, want 2", code)
 	}
-	if !strings.Contains(stderr.String(), "UNIFI_URL") {
+	if !strings.Contains(stderr.String(), "UNIFI_SYNC_URL") {
 		t.Errorf("stderr = %q, want env var mention", stderr.String())
 	}
 }
 
 func TestRunMissingPartialEnvVars(t *testing.T) {
-	t.Setenv("UNIFI_URL", "http://example.com")
+	t.Setenv("UNIFI_SYNC_URL", "http://example.com")
 	var stdout, stderr bytes.Buffer
 	code := run([]string{"pull"}, &stdout, &stderr)
 	if code != 2 {
 		t.Errorf("run(partial env) = %d, want 2", code)
 	}
-	if !strings.Contains(stderr.String(), "UNIFI_USERNAME") {
+	if !strings.Contains(stderr.String(), "UNIFI_SYNC_USERNAME") {
 		t.Errorf("stderr = %q, want missing var mention", stderr.String())
 	}
 }
@@ -387,7 +387,7 @@ func TestRunSiteEnv(t *testing.T) {
 	defer srv.Close()
 
 	setRequiredEnv(t, srv.URL)
-	t.Setenv("UNIFI_SITE", "mysite")
+	t.Setenv("UNIFI_SYNC_SITE", "mysite")
 
 	var stdout, stderr bytes.Buffer
 	code := run([]string{"pull", "-type", "networkconf"}, &stdout, &stderr)
