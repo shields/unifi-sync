@@ -5,27 +5,29 @@ This file provides guidance to AI agents when working with code in this reposito
 ## Build & Test Commands
 
 ```bash
-go build                    # Build binary
-go test ./...               # Run all tests
+make fmt                    # Format code (gofumpt)
+make lint                   # Run golangci-lint
+make test                   # Run tests with race detector + 100% coverage check
+make build                  # Build binary
+make all                    # fmt + lint + test + build
+```
+
+Individual commands:
+
+```bash
 go test -v ./...            # Verbose test output
 go test -run TestFuncName   # Run a single test
-go test -cover ./...        # Test with coverage
-go test -race ./...         # Race condition detection
-go vet ./...                # Static analysis
-gofmt -l *.go               # Check formatting
 ```
 
 ## After Every Change
 
-After any code change, run format/lint and tests before considering the work done:
+After any code change, run the full check before considering the work done:
 
 ```bash
-gofmt -w *.go               # Format code
-go vet ./...                 # Lint / static analysis
-go test -cover ./...         # Run tests and verify 100.0% coverage
+make all
 ```
 
-All three must pass cleanly. Test coverage must remain at 100.0% of statements — add or update tests as needed to maintain this.
+This formats with gofumpt, lints with golangci-lint (all linters enabled), runs tests with `-race`, and enforces 100.0% statement coverage. All must pass cleanly.
 
 ## Architecture
 

@@ -24,7 +24,7 @@ lint-fix:
 	go tool golangci-lint run --fix ./...
 
 fmt:
-	gofmt -w *.go
+	go tool gofumpt -w .
 
 clean:
 	rm -f unifi-sync coverage.out coverage.html
