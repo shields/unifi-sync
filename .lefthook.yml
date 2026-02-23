@@ -1,0 +1,17 @@
+pre-commit:
+  parallel: false
+  commands:
+    format:
+      glob: "**/*.go"
+      run: gofmt -w {staged_files}
+      stage_fixed: true
+
+    lint:
+      run: make lint
+
+    test:
+      run: make test
+
+skip_output:
+  - meta
+  - summary

@@ -11,7 +11,7 @@ import (
 
 // parseDotenv parses KEY=VALUE lines from r. Per spec: only full-line comments
 // (lines starting with #) are supported. Inline comments, "export" prefixes,
-// and BOM handling are intentionally omitted — values containing # (e.g., URLs
+// and BOM handling are intentionally omitted -- values containing # (e.g., URLs
 // with fragments) must not be truncated.
 func parseDotenv(r io.Reader) (map[string]string, error) {
 	env := make(map[string]string)
@@ -41,18 +41,18 @@ func parseDotenv(r io.Reader) (map[string]string, error) {
 	return env, scanner.Err()
 }
 
-// injectable for testing; tests in this package are not parallel
+// Injectable for testing; tests in this package are not parallel.
 var setenvFunc = os.Setenv
 
 func loadDotenv(path string) error {
-	f, err := os.Open(path)
+	f, err := os.Open(path) //nolint:gosec // path is the well-known .env file location
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
 			return nil
 		}
 		return err
 	}
-	defer f.Close()
+	defer f.Close() //nolint:errcheck // read-only file, close error is harmless
 
 	env, err := parseDotenv(f)
 	if err != nil {

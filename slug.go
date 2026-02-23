@@ -11,13 +11,14 @@ func slugify(name string) string {
 	for _, r := range strings.ToLower(name) {
 		switch {
 		case unicode.IsLetter(r) || r >= '0' && r <= '9': // ASCII digits only; unicode digits don't belong in filenames
-			b.WriteRune(r)
+			_, _ = b.WriteRune(r)
 			prevHyphen = false
 		case r == ' ' || r == '-':
 			if b.Len() > 0 && !prevHyphen {
-				b.WriteByte('-')
+				_ = b.WriteByte('-')
 				prevHyphen = true
 			}
+		default:
 		}
 	}
 	return strings.TrimRight(b.String(), "-")

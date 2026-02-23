@@ -87,10 +87,14 @@ func TestParseDotenv(t *testing.T) {
 func TestLoadDotenv(t *testing.T) {
 	dir := t.TempDir()
 	envFile := filepath.Join(dir, ".env")
-	os.WriteFile(envFile, []byte("NEW_VAR=from_file\nEXISTING_VAR=from_file\n"), 0o644)
+	if err := os.WriteFile(envFile, []byte("NEW_VAR=from_file\nEXISTING_VAR=from_file\n"), 0o600); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
 
 	t.Setenv("EXISTING_VAR", "from_env")
-	t.Cleanup(func() { os.Unsetenv("NEW_VAR") })
+	t.Cleanup(func() {
+		os.Unsetenv("NEW_VAR") //nolint:errcheck,revive // test cleanup
+	})
 
 	if err := loadDotenv(envFile); err != nil {
 		t.Fatalf("loadDotenv() error = %v", err)
@@ -114,9 +118,10 @@ func TestLoadDotenvMissing(t *testing.T) {
 func TestLoadDotenvScanError(t *testing.T) {
 	dir := t.TempDir()
 	envFile := filepath.Join(dir, ".env")
-	// Line longer than bufio.MaxScanTokenSize triggers scanner error
 	longLine := strings.Repeat("x", 1024*1024)
-	os.WriteFile(envFile, []byte("FOO="+longLine+"\n"), 0o644)
+	if err := os.WriteFile(envFile, []byte("FOO="+longLine+"\n"), 0o600); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
 
 	err := loadDotenv(envFile)
 	if err == nil {
@@ -127,11 +132,13 @@ func TestLoadDotenvScanError(t *testing.T) {
 func TestLoadDotenvSetenvError(t *testing.T) {
 	dir := t.TempDir()
 	envFile := filepath.Join(dir, ".env")
-	os.WriteFile(envFile, []byte("SETENV_ERR_VAR=val\n"), 0o644)
+	if err := os.WriteFile(envFile, []byte("SETENV_ERR_VAR=val\n"), 0o600); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
 
 	errSetenv := errors.New("setenv failed")
 	orig := setenvFunc
-	setenvFunc = func(k, v string) error { return errSetenv }
+	setenvFunc = func(_, _ string) error { return errSetenv }
 	defer func() { setenvFunc = orig }()
 
 	err := loadDotenv(envFile)
@@ -143,9 +150,13 @@ func TestLoadDotenvSetenvError(t *testing.T) {
 func TestLoadDotenvUnreadable(t *testing.T) {
 	dir := t.TempDir()
 	envFile := filepath.Join(dir, ".env")
-	os.WriteFile(envFile, []byte("FOO=bar\n"), 0o644)
-	os.Chmod(envFile, 0o000)
-	t.Cleanup(func() { os.Chmod(envFile, 0o644) })
+	if err := os.WriteFile(envFile, []byte("FOO=bar\n"), 0o600); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+	os.Chmod(envFile, 0o000) //nolint:errcheck,revive // test setup
+	t.Cleanup(func() {
+		os.Chmod(envFile, 0o600) //nolint:errcheck,revive // test cleanup
+	})
 
 	err := loadDotenv(envFile)
 	if err == nil {

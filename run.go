@@ -9,31 +9,33 @@ import (
 	"strings"
 )
 
+const cmdNamePush = "push"
+
 var dotenvPath = ".env"
 
 func printUsage(w io.Writer) {
-	fmt.Fprint(w, `usage: unifi-sync <command> [flags]
-
-Commands:
-  pull   fetch remote config and write to local files
-  push   upload local config to the controller
-  diff   compare local config with remote
-
-Flags:
-  -config string   config directory (default "config")
-  -type string     resource type filter
-
-Push-only flags:
-  -dry-run         show planned changes without executing
-
-Environment variables:
-  UNIFI_SYNC_URL                       controller URL (required)
-  UNIFI_SYNC_USERNAME                  login username (required)
-  UNIFI_SYNC_PASSWORD                  login password (required)
-  UNIFI_SYNC_SITE                      site name (default "default")
-  UNIFI_SYNC_INSECURE_SKIP_TLS_VERIFY  set "true" to skip TLS verification
-  NO_COLOR                             disable colored output
-`)
+	fmt.Fprint(w, //nolint:errcheck,revive // writing to stdout/stderr
+		"usage: unifi-sync <command> [flags]\n"+
+			"\n"+
+			"Commands:\n"+
+			"  pull   fetch remote config and write to local files\n"+
+			"  push   upload local config to the controller\n"+
+			"  diff   compare local config with remote\n"+
+			"\n"+
+			"Flags:\n"+
+			"  -config string   config directory (default \"config\")\n"+
+			"  -type string     resource type filter\n"+
+			"\n"+
+			"Push-only flags:\n"+
+			"  -dry-run         show planned changes without executing\n"+
+			"\n"+
+			"Environment variables:\n"+
+			"  UNIFI_SYNC_URL                       controller URL (required)\n"+
+			"  UNIFI_SYNC_USERNAME                  login username (required)\n"+
+			"  UNIFI_SYNC_PASSWORD                  login password (required)\n"+
+			"  UNIFI_SYNC_SITE                      site name (default \"default\")\n"+
+			"  UNIFI_SYNC_INSECURE_SKIP_TLS_VERIFY  set \"true\" to skip TLS verification\n"+
+			"  NO_COLOR                             disable colored output\n")
 }
 
 func run(args []string, stdout, stderr io.Writer) int {
@@ -55,12 +57,12 @@ func run(args []string, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet(cmd, flag.ContinueOnError)
 	fs.StringVar(&typeFilter, "type", "", "resource type filter")
 	fs.StringVar(&configDir, "config", "config", "config directory")
-	if cmd == "push" {
+	if cmd == cmdNamePush {
 		fs.BoolVar(&dryRun, "dry-run", false, "show planned changes without executing")
 	}
 
 	switch cmd {
-	case "pull", "push", "diff":
+	case "pull", cmdNamePush, "diff":
 		// Direct help to stdout; parse errors to stderr.
 		fs.SetOutput(stdout)
 		for _, a := range flagArgs {
@@ -74,12 +76,13 @@ func run(args []string, stdout, stderr io.Writer) int {
 			return 2
 		}
 	default:
-		fmt.Fprintf(stderr, "unknown command: %s\n", cmd)
+		//nolint:gosec // cmd is from CLI args, not rendered in HTML
+		fmt.Fprintf(stderr, "unknown command: %s\n", cmd) //nolint:errcheck,revive // writing to stderr
 		return 2
 	}
 
 	if err := loadDotenv(dotenvPath); err != nil {
-		fmt.Fprintln(stderr, err)
+		fmt.Fprintln(stderr, err) //nolint:errcheck,revive // writing to stderr
 		return 2
 	}
 
@@ -90,7 +93,9 @@ func run(args []string, stdout, stderr io.Writer) int {
 		}
 	}
 	if len(missing) > 0 {
-		fmt.Fprintf(stderr, "missing required environment variables: %s\n", strings.Join(missing, ", "))
+		fmt.Fprintf(stderr, //nolint:errcheck,revive // writing to stderr
+			"missing required environment variables: %s\n",
+			strings.Join(missing, ", "))
 		return 2
 	}
 
@@ -103,7 +108,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 	ctx := context.Background()
 	c := newClient(os.Getenv("UNIFI_SYNC_URL"), insecure)
 	if err := c.login(ctx, os.Getenv("UNIFI_SYNC_USERNAME"), os.Getenv("UNIFI_SYNC_PASSWORD")); err != nil {
-		fmt.Fprintln(stderr, err)
+		fmt.Fprintln(stderr, err) //nolint:errcheck,revive // writing to stderr
 		return 2
 	}
 
@@ -112,28 +117,30 @@ func run(args []string, stdout, stderr io.Writer) int {
 	switch cmd {
 	case "pull":
 		if err := cmdPull(ctx, c, site, configDir, typeFilter, stdout); err != nil {
-			fmt.Fprintln(stderr, err)
+			fmt.Fprintln(stderr, err) //nolint:errcheck,revive // writing to stderr
 			return 2
 		}
-	case "push":
+	case cmdNamePush:
 		hasDiffs, err := cmdPush(ctx, c, site, configDir, typeFilter, dryRun, color, stdout)
 		if err != nil {
-			fmt.Fprintln(stderr, err)
+			fmt.Fprintln(stderr, err) //nolint:errcheck,revive // writing to stderr
 			return 2
 		}
 		if hasDiffs {
+			//nolint:errcheck,revive // writing to stderr
 			fmt.Fprintln(stderr, "push succeeded but verification found differences")
 			return 1
 		}
 	case "diff":
 		hasDiffs, err := cmdDiff(ctx, c, site, configDir, typeFilter, color, stdout)
 		if err != nil {
-			fmt.Fprintln(stderr, err)
+			fmt.Fprintln(stderr, err) //nolint:errcheck,revive // writing to stderr
 			return 2
 		}
 		if hasDiffs {
 			return 1
 		}
+	default:
 	}
 	return 0
 }

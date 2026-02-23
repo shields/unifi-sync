@@ -13,6 +13,7 @@ import (
 )
 
 func setRequiredEnv(t *testing.T, url string) {
+	t.Helper()
 	t.Setenv("UNIFI_SYNC_URL", url)
 	t.Setenv("UNIFI_SYNC_USERNAME", "admin")
 	t.Setenv("UNIFI_SYNC_PASSWORD", "pass")
@@ -20,24 +21,28 @@ func setRequiredEnv(t *testing.T, url string) {
 
 func loginMux(responses map[string][]map[string]any) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/api/login" {
+		if r.URL.Path == testAPILogin {
 			w.WriteHeader(http.StatusOK)
 			return
 		}
 		for path, data := range responses {
 			if strings.HasSuffix(r.URL.Path, path) {
-				w.Write(unifiResponse(data))
+				w.Write(unifiResponse(data)) //nolint:errcheck,revive // test handler
 				return
 			}
 		}
 		if r.Method == http.MethodPut || r.Method == http.MethodPost {
-			body, _ := io.ReadAll(r.Body)
+			body, err := io.ReadAll(r.Body)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
 			var obj map[string]any
-			json.Unmarshal(body, &obj)
-			w.Write(unifiResponse([]map[string]any{obj}))
+			_ = json.Unmarshal(body, &obj)                //nolint:errcheck // test handler
+			w.Write(unifiResponse([]map[string]any{obj})) //nolint:errcheck,revive // test handler
 			return
 		}
-		w.Write(unifiResponse([]map[string]any{}))
+		w.Write(unifiResponse([]map[string]any{})) //nolint:errcheck,revive // test handler
 	})
 }
 
@@ -119,9 +124,13 @@ func TestRunMissingPartialEnvVars(t *testing.T) {
 func TestRunBadDotenv(t *testing.T) {
 	dir := t.TempDir()
 	badFile := filepath.Join(dir, ".env")
-	os.WriteFile(badFile, []byte("KEY=value"), 0o644)
-	os.Chmod(badFile, 0o000)
-	t.Cleanup(func() { os.Chmod(badFile, 0o644) })
+	if err := os.WriteFile(badFile, []byte("KEY=value"), 0o600); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+	os.Chmod(badFile, 0o000) //nolint:errcheck,revive // test setup
+	t.Cleanup(func() {
+		os.Chmod(badFile, 0o600) //nolint:errcheck,revive // test cleanup
+	})
 
 	orig := dotenvPath
 	dotenvPath = badFile
@@ -143,9 +152,9 @@ func TestRunBadFlag(t *testing.T) {
 }
 
 func TestRunLoginError(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
-		w.Write([]byte("unauthorized"))
+		w.Write([]byte("unauthorized")) //nolint:errcheck,revive // test handler
 	}))
 	defer srv.Close()
 
@@ -159,7 +168,7 @@ func TestRunLoginError(t *testing.T) {
 
 func TestRunPull(t *testing.T) {
 	srv := httptest.NewServer(loginMux(map[string][]map[string]any{
-		"/rest/networkconf": {{"_id": "n1", "name": "HomeNet"}},
+		"/rest/networkconf": {{"_id": "n1", "name": testNameHomeNet}},
 		"/rest/wlanconf":    {},
 		"/rest/usergroup":   {},
 	}))
@@ -179,14 +188,16 @@ func TestRunPull(t *testing.T) {
 
 func TestRunPullError(t *testing.T) {
 	srv := httptest.NewServer(loginMux(map[string][]map[string]any{
-		"/rest/networkconf": {{"_id": "n1", "name": "HomeNet"}},
+		"/rest/networkconf": {{"_id": "n1", "name": testNameHomeNet}},
 	}))
 	defer srv.Close()
 
 	setRequiredEnv(t, srv.URL)
 	dir := t.TempDir()
-	os.Chmod(dir, 0o555)
-	t.Cleanup(func() { os.Chmod(dir, 0o755) })
+	os.Chmod(dir, 0o555) //nolint:errcheck,gosec,revive // test setup
+	t.Cleanup(func() {
+		os.Chmod(dir, 0o750) //nolint:errcheck,gosec,revive // test cleanup
+	})
 
 	var stdout, stderr bytes.Buffer
 	code := run([]string{"pull", "-config", dir, "-type", "networkconf"}, &stdout, &stderr)
@@ -197,15 +208,17 @@ func TestRunPullError(t *testing.T) {
 
 func TestRunPush(t *testing.T) {
 	srv := httptest.NewServer(loginMux(map[string][]map[string]any{
-		"/rest/networkconf": {{"_id": "abc123", "name": "HomeNet"}},
+		"/rest/networkconf": {{"_id": "abc123", "name": testNameHomeNet}},
 	}))
 	defer srv.Close()
 
 	setRequiredEnv(t, srv.URL)
 	dir := t.TempDir()
-	writeConfigFile(dir, "networkconf", "homenet", map[string]any{
-		"_id": "abc123", "name": "HomeNet",
-	})
+	if err := writeConfigFile(dir, "networkconf", "homenet", map[string]any{
+		"_id": "abc123", "name": testNameHomeNet,
+	}); err != nil {
+		t.Fatalf("writeConfigFile: %v", err)
+	}
 
 	var stdout, stderr bytes.Buffer
 	code := run([]string{"push", "-config", dir, "-type", "networkconf"}, &stdout, &stderr)
@@ -227,9 +240,11 @@ func TestRunPushDryRun(t *testing.T) {
 
 	setRequiredEnv(t, srv.URL)
 	dir := t.TempDir()
-	writeConfigFile(dir, "networkconf", "homenet", map[string]any{
-		"_id": "abc123", "name": "HomeNet",
-	})
+	if err := writeConfigFile(dir, "networkconf", "homenet", map[string]any{
+		"_id": "abc123", "name": testNameHomeNet,
+	}); err != nil {
+		t.Fatalf("writeConfigFile: %v", err)
+	}
 
 	var stdout, stderr bytes.Buffer
 	code := run([]string{"push", "-config", dir, "-type", "networkconf", "-dry-run"}, &stdout, &stderr)
@@ -247,10 +262,8 @@ func TestRunPushError(t *testing.T) {
 
 	setRequiredEnv(t, srv.URL)
 	var stdout, stderr bytes.Buffer
-	code := run([]string{"push", "-config", "/nonexistent/path", "-type", "networkconf"}, &stdout, &stderr)
-	// push with nonexistent config dir returns 0 (empty dir = nothing to push)
-	// instead test with bad type
-	code = run([]string{"push", "-type", "badtype"}, &stdout, &stderr)
+	_ = run([]string{"push", "-config", "/nonexistent/path", "-type", "networkconf"}, &stdout, &stderr)
+	code := run([]string{"push", "-type", "badtype"}, &stdout, &stderr)
 	if code != 2 {
 		t.Errorf("run(push error) = %d, want 2", code)
 	}
@@ -258,15 +271,17 @@ func TestRunPushError(t *testing.T) {
 
 func TestRunPushVerificationDiffs(t *testing.T) {
 	srv := httptest.NewServer(loginMux(map[string][]map[string]any{
-		"/rest/networkconf": {{"_id": "abc123", "name": "HomeNet", "extra": "field"}},
+		"/rest/networkconf": {{"_id": "abc123", "name": testNameHomeNet, "extra": "field"}},
 	}))
 	defer srv.Close()
 
 	setRequiredEnv(t, srv.URL)
 	dir := t.TempDir()
-	writeConfigFile(dir, "networkconf", "homenet", map[string]any{
-		"_id": "abc123", "name": "HomeNet",
-	})
+	if err := writeConfigFile(dir, "networkconf", "homenet", map[string]any{
+		"_id": "abc123", "name": testNameHomeNet,
+	}); err != nil {
+		t.Fatalf("writeConfigFile: %v", err)
+	}
 
 	var stdout, stderr bytes.Buffer
 	code := run([]string{"push", "-config", dir, "-type", "networkconf"}, &stdout, &stderr)
@@ -279,7 +294,7 @@ func TestRunPushVerificationDiffs(t *testing.T) {
 }
 
 func TestRunDiffNoDifferences(t *testing.T) {
-	obj := map[string]any{"_id": "n1", "name": "HomeNet"}
+	obj := map[string]any{"_id": "n1", "name": testNameHomeNet}
 	srv := httptest.NewServer(loginMux(map[string][]map[string]any{
 		"/rest/networkconf": {obj},
 	}))
@@ -287,7 +302,9 @@ func TestRunDiffNoDifferences(t *testing.T) {
 
 	setRequiredEnv(t, srv.URL)
 	dir := t.TempDir()
-	writeConfigFile(dir, "networkconf", "homenet", obj)
+	if err := writeConfigFile(dir, "networkconf", "homenet", obj); err != nil {
+		t.Fatalf("writeConfigFile: %v", err)
+	}
 
 	var stdout, stderr bytes.Buffer
 	code := run([]string{"diff", "-config", dir, "-type", "networkconf"}, &stdout, &stderr)
@@ -298,15 +315,17 @@ func TestRunDiffNoDifferences(t *testing.T) {
 
 func TestRunDiffWithDifferences(t *testing.T) {
 	srv := httptest.NewServer(loginMux(map[string][]map[string]any{
-		"/rest/networkconf": {{"_id": "n1", "name": "HomeNet", "vlan": json.Number("10")}},
+		"/rest/networkconf": {{"_id": "n1", "name": testNameHomeNet, "vlan": json.Number("10")}},
 	}))
 	defer srv.Close()
 
 	setRequiredEnv(t, srv.URL)
 	dir := t.TempDir()
-	writeConfigFile(dir, "networkconf", "homenet", map[string]any{
-		"_id": "n1", "name": "HomeNet", "vlan": json.Number("20"),
-	})
+	if err := writeConfigFile(dir, "networkconf", "homenet", map[string]any{
+		"_id": "n1", "name": testNameHomeNet, "vlan": json.Number("20"),
+	}); err != nil {
+		t.Fatalf("writeConfigFile: %v", err)
+	}
 
 	var stdout, stderr bytes.Buffer
 	code := run([]string{"diff", "-config", dir, "-type", "networkconf"}, &stdout, &stderr)
@@ -329,16 +348,18 @@ func TestRunDiffError(t *testing.T) {
 
 func TestRunDiffColor(t *testing.T) {
 	srv := httptest.NewServer(loginMux(map[string][]map[string]any{
-		"/rest/networkconf": {{"_id": "n1", "name": "HomeNet", "vlan": json.Number("10")}},
+		"/rest/networkconf": {{"_id": "n1", "name": testNameHomeNet, "vlan": json.Number("10")}},
 	}))
 	defer srv.Close()
 
 	setRequiredEnv(t, srv.URL)
 	t.Setenv("TERM", "xterm")
 	dir := t.TempDir()
-	writeConfigFile(dir, "networkconf", "homenet", map[string]any{
-		"_id": "n1", "name": "HomeNet", "vlan": json.Number("20"),
-	})
+	if err := writeConfigFile(dir, "networkconf", "homenet", map[string]any{
+		"_id": "n1", "name": testNameHomeNet, "vlan": json.Number("20"),
+	}); err != nil {
+		t.Fatalf("writeConfigFile: %v", err)
+	}
 
 	var stdout, stderr bytes.Buffer
 	code := run([]string{"diff", "-config", dir, "-type", "networkconf"}, &stdout, &stderr)
@@ -352,7 +373,7 @@ func TestRunDiffColor(t *testing.T) {
 
 func TestRunDiffNoColor(t *testing.T) {
 	srv := httptest.NewServer(loginMux(map[string][]map[string]any{
-		"/rest/networkconf": {{"_id": "n1", "name": "HomeNet", "vlan": json.Number("10")}},
+		"/rest/networkconf": {{"_id": "n1", "name": testNameHomeNet, "vlan": json.Number("10")}},
 	}))
 	defer srv.Close()
 
@@ -360,9 +381,11 @@ func TestRunDiffNoColor(t *testing.T) {
 	t.Setenv("NO_COLOR", "1")
 	t.Setenv("TERM", "xterm")
 	dir := t.TempDir()
-	writeConfigFile(dir, "networkconf", "homenet", map[string]any{
-		"_id": "n1", "name": "HomeNet", "vlan": json.Number("20"),
-	})
+	if err := writeConfigFile(dir, "networkconf", "homenet", map[string]any{
+		"_id": "n1", "name": testNameHomeNet, "vlan": json.Number("20"),
+	}); err != nil {
+		t.Fatalf("writeConfigFile: %v", err)
+	}
 
 	var stdout, stderr bytes.Buffer
 	code := run([]string{"diff", "-config", dir, "-type", "networkconf"}, &stdout, &stderr)
@@ -377,12 +400,12 @@ func TestRunDiffNoColor(t *testing.T) {
 func TestRunSiteEnv(t *testing.T) {
 	var requestedPath string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/api/login" {
+		if r.URL.Path == testAPILogin {
 			w.WriteHeader(http.StatusOK)
 			return
 		}
 		requestedPath = r.URL.Path
-		w.Write(unifiResponse([]map[string]any{}))
+		w.Write(unifiResponse([]map[string]any{})) //nolint:errcheck,revive // test handler
 	}))
 	defer srv.Close()
 

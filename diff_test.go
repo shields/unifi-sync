@@ -5,8 +5,10 @@ import (
 	"testing"
 )
 
+const testLineTwo = "two"
+
 func TestComputeDiffIdentical(t *testing.T) {
-	a := []string{"one", "two", "three"}
+	a := []string{"one", testLineTwo, "three"}
 	ops := computeDiff(a, a)
 	if len(ops) != len(a) {
 		t.Fatalf("len(ops) = %d, want %d", len(ops), len(a))
@@ -20,14 +22,14 @@ func TestComputeDiffIdentical(t *testing.T) {
 
 func TestComputeDiffAdditions(t *testing.T) {
 	a := []string{"one", "three"}
-	b := []string{"one", "two", "three"}
+	b := []string{"one", testLineTwo, "three"}
 	ops := computeDiff(a, b)
 	hasAdd := false
 	for _, op := range ops {
 		if op.kind == diffAdd {
 			hasAdd = true
-			if op.line != "two" {
-				t.Errorf("added line = %q, want %q", op.line, "two")
+			if op.line != testLineTwo {
+				t.Errorf("added line = %q, want %q", op.line, testLineTwo)
 			}
 		}
 	}
@@ -37,15 +39,15 @@ func TestComputeDiffAdditions(t *testing.T) {
 }
 
 func TestComputeDiffDeletions(t *testing.T) {
-	a := []string{"one", "two", "three"}
+	a := []string{"one", testLineTwo, "three"}
 	b := []string{"one", "three"}
 	ops := computeDiff(a, b)
 	hasDel := false
 	for _, op := range ops {
 		if op.kind == diffDel {
 			hasDel = true
-			if op.line != "two" {
-				t.Errorf("deleted line = %q, want %q", op.line, "two")
+			if op.line != testLineTwo {
+				t.Errorf("deleted line = %q, want %q", op.line, testLineTwo)
 			}
 		}
 	}
@@ -55,12 +57,12 @@ func TestComputeDiffDeletions(t *testing.T) {
 }
 
 func TestComputeDiffModification(t *testing.T) {
-	a := []string{"one", "two", "three"}
+	a := []string{"one", testLineTwo, "three"}
 	b := []string{"one", "TWO", "three"}
 	ops := computeDiff(a, b)
 	hasDel, hasAdd := false, false
 	for _, op := range ops {
-		if op.kind == diffDel && op.line == "two" {
+		if op.kind == diffDel && op.line == testLineTwo {
 			hasDel = true
 		}
 		if op.kind == diffAdd && op.line == "TWO" {
@@ -106,7 +108,7 @@ func TestComputeDiffAllDeleted(t *testing.T) {
 }
 
 func TestFormatUnifiedDiffNoChanges(t *testing.T) {
-	a := []string{"one", "two"}
+	a := []string{"one", testLineTwo}
 	ops := computeDiff(a, a)
 	out := formatDiff(ops, "a.json", "b.json", false)
 	if out != "" {

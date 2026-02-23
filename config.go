@@ -9,6 +9,7 @@ import (
 // writeConfigFile writes a JSON config file. Slug is safe (from slugify: [a-z0-9-]).
 func writeConfigFile(dir, resourceType, slug string, data map[string]any) error {
 	subdir := filepath.Join(dir, resourceType)
+	//nolint:gosec // config dirs need world-readable perms
 	if err := os.MkdirAll(subdir, 0o755); err != nil {
 		return err
 	}
@@ -16,15 +17,16 @@ func writeConfigFile(dir, resourceType, slug string, data map[string]any) error 
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(filepath.Join(subdir, slug+".json"), content, 0o644)
+	path := filepath.Join(subdir, slug+".json")
+	return os.WriteFile(path, content, 0o644) //nolint:gosec // config files need world-readable perms
 }
 
 func readConfigFile(path string) (map[string]any, error) {
-	f, err := os.Open(path)
+	f, err := os.Open(path) //nolint:gosec // path is constructed from trusted config directory
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
+	defer f.Close() //nolint:errcheck // read-only file, close error is harmless
 	return decodeJSON(f)
 }
 

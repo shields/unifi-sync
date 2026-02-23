@@ -16,7 +16,7 @@ type diffOp struct {
 }
 
 // computeDiff produces a sequence of diff operations using the LCS algorithm.
-// O(m*n) space is acceptable here — inputs are small JSON config files.
+// O(m*n) space is acceptable here -- inputs are small JSON config files.
 func computeDiff(a, b []string) []diffOp {
 	m, n := len(a), len(b)
 
@@ -27,11 +27,12 @@ func computeDiff(a, b []string) []diffOp {
 	}
 	for i := m - 1; i >= 0; i-- {
 		for j := n - 1; j >= 0; j-- {
-			if a[i] == b[j] {
+			switch {
+			case a[i] == b[j]:
 				dp[i][j] = dp[i+1][j+1] + 1
-			} else if dp[i+1][j] >= dp[i][j+1] {
+			case dp[i+1][j] >= dp[i][j+1]:
 				dp[i][j] = dp[i+1][j]
-			} else {
+			default:
 				dp[i][j] = dp[i][j+1]
 			}
 		}
@@ -41,14 +42,15 @@ func computeDiff(a, b []string) []diffOp {
 	var ops []diffOp
 	i, j := 0, 0
 	for i < m && j < n {
-		if a[i] == b[j] {
+		switch {
+		case a[i] == b[j]:
 			ops = append(ops, diffOp{diffEqual, a[i]})
 			i++
 			j++
-		} else if dp[i+1][j] >= dp[i][j+1] {
+		case dp[i+1][j] >= dp[i][j+1]:
 			ops = append(ops, diffOp{diffDel, a[i]})
 			i++
-		} else {
+		default:
 			ops = append(ops, diffOp{diffAdd, b[j]})
 			j++
 		}
@@ -71,7 +73,9 @@ const (
 
 // formatDiff renders diff ops with --- / +++ headers and +/- line markers.
 // Shows full file context (no hunks) since config files are small.
-func formatDiff(ops []diffOp, nameA, nameB string, color bool) string {
+func formatDiff( //nolint:revive // color flag is inherent to output formatting
+	ops []diffOp, nameA, nameB string, color bool,
+) string {
 	hasChanges := false
 	for _, op := range ops {
 		if op.kind != diffEqual {
@@ -85,29 +89,30 @@ func formatDiff(ops []diffOp, nameA, nameB string, color bool) string {
 
 	var b strings.Builder
 	if color {
-		b.WriteString(ansiCyan + "--- " + nameA + ansiReset + "\n")
-		b.WriteString(ansiCyan + "+++ " + nameB + ansiReset + "\n")
+		_, _ = b.WriteString(ansiCyan + "--- " + nameA + ansiReset + "\n")
+		_, _ = b.WriteString(ansiCyan + "+++ " + nameB + ansiReset + "\n")
 	} else {
-		b.WriteString("--- " + nameA + "\n")
-		b.WriteString("+++ " + nameB + "\n")
+		_, _ = b.WriteString("--- " + nameA + "\n")
+		_, _ = b.WriteString("+++ " + nameB + "\n")
 	}
 
 	for _, op := range ops {
 		switch op.kind {
 		case diffEqual:
-			b.WriteString(" " + op.line + "\n")
+			_, _ = b.WriteString(" " + op.line + "\n")
 		case diffDel:
 			if color {
-				b.WriteString(ansiRed + "-" + op.line + ansiReset + "\n")
+				_, _ = b.WriteString(ansiRed + "-" + op.line + ansiReset + "\n")
 			} else {
-				b.WriteString("-" + op.line + "\n")
+				_, _ = b.WriteString("-" + op.line + "\n")
 			}
 		case diffAdd:
 			if color {
-				b.WriteString(ansiGreen + "+" + op.line + ansiReset + "\n")
+				_, _ = b.WriteString(ansiGreen + "+" + op.line + ansiReset + "\n")
 			} else {
-				b.WriteString("+" + op.line + "\n")
+				_, _ = b.WriteString("+" + op.line + "\n")
 			}
+		default:
 		}
 	}
 	return b.String()

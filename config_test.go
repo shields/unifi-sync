@@ -11,7 +11,7 @@ func TestWriteAndReadConfigFile(t *testing.T) {
 	dir := t.TempDir()
 	obj := map[string]any{
 		"_id":  "abc123",
-		"name": "HomeNet",
+		"name": testNameHomeNet,
 		"vlan": "100",
 	}
 
@@ -21,26 +21,30 @@ func TestWriteAndReadConfigFile(t *testing.T) {
 	}
 
 	path := filepath.Join(dir, "networkconf", "homenet.json")
-	if _, err := os.Stat(path); err != nil {
-		t.Fatalf("file not created at %s: %v", path, err)
+	if _, statErr := os.Stat(path); statErr != nil {
+		t.Fatalf("file not created at %s: %v", path, statErr)
 	}
 
 	got, err := readConfigFile(path)
 	if err != nil {
 		t.Fatalf("readConfigFile() error = %v", err)
 	}
-	if got["name"] != "HomeNet" {
-		t.Errorf("name = %v, want HomeNet", got["name"])
+	if got["name"] != testNameHomeNet {
+		t.Errorf("name = %v, want %s", got["name"], testNameHomeNet)
 	}
 }
 
 func TestReadConfigFiles(t *testing.T) {
 	dir := t.TempDir()
-	obj1 := map[string]any{"name": "HomeNet", "_id": "1"}
+	obj1 := map[string]any{"name": testNameHomeNet, "_id": "1"}
 	obj2 := map[string]any{"name": "Guest Network", "_id": "2"}
 
-	writeConfigFile(dir, "networkconf", "homenet", obj1)
-	writeConfigFile(dir, "networkconf", "guest-network", obj2)
+	if err := writeConfigFile(dir, "networkconf", "homenet", obj1); err != nil {
+		t.Fatalf("writeConfigFile: %v", err)
+	}
+	if err := writeConfigFile(dir, "networkconf", "guest-network", obj2); err != nil {
+		t.Fatalf("writeConfigFile: %v", err)
+	}
 
 	files, err := readConfigFiles(dir, "networkconf")
 	if err != nil {
@@ -49,7 +53,7 @@ func TestReadConfigFiles(t *testing.T) {
 	if len(files) != 2 {
 		t.Fatalf("len = %d, want 2", len(files))
 	}
-	if files["homenet"]["name"] != "HomeNet" {
+	if files["homenet"]["name"] != testNameHomeNet {
 		t.Errorf("homenet name = %v", files["homenet"]["name"])
 	}
 	if files["guest-network"]["name"] != "Guest Network" {
@@ -71,7 +75,9 @@ func TestReadConfigFilesEmptyDir(t *testing.T) {
 func TestReadConfigFileInvalid(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "bad.json")
-	os.WriteFile(path, []byte("{invalid"), 0o644)
+	if err := os.WriteFile(path, []byte("{invalid"), 0o600); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
 
 	_, err := readConfigFile(path)
 	if err == nil {
@@ -81,9 +87,10 @@ func TestReadConfigFileInvalid(t *testing.T) {
 
 func TestWriteConfigFileUnwritable(t *testing.T) {
 	dir := t.TempDir()
-	// Make dir read-only so subdirectory creation fails
-	os.Chmod(dir, 0o555)
-	t.Cleanup(func() { os.Chmod(dir, 0o755) })
+	os.Chmod(dir, 0o555) //nolint:errcheck,gosec,revive // test setup
+	t.Cleanup(func() {
+		os.Chmod(dir, 0o750) //nolint:errcheck,gosec,revive // test cleanup
+	})
 
 	err := writeConfigFile(dir, "networkconf", "test", map[string]any{"name": "test"})
 	if err == nil {
@@ -94,8 +101,12 @@ func TestWriteConfigFileUnwritable(t *testing.T) {
 func TestReadConfigFilesWithBadFile(t *testing.T) {
 	dir := t.TempDir()
 	subdir := filepath.Join(dir, "networkconf")
-	os.MkdirAll(subdir, 0o755)
-	os.WriteFile(filepath.Join(subdir, "bad.json"), []byte("{invalid"), 0o644)
+	if err := os.MkdirAll(subdir, 0o750); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(subdir, "bad.json"), []byte("{invalid"), 0o600); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
 
 	_, err := readConfigFiles(dir, "networkconf")
 	if err == nil {
@@ -122,9 +133,13 @@ func TestReadConfigFileNotFound(t *testing.T) {
 func TestReadConfigFilesUnreadableDir(t *testing.T) {
 	dir := t.TempDir()
 	subdir := filepath.Join(dir, "networkconf")
-	os.MkdirAll(subdir, 0o755)
-	os.Chmod(subdir, 0o000)
-	t.Cleanup(func() { os.Chmod(subdir, 0o755) })
+	if err := os.MkdirAll(subdir, 0o750); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
+	os.Chmod(subdir, 0o000) //nolint:errcheck,revive // test setup
+	t.Cleanup(func() {
+		os.Chmod(subdir, 0o750) //nolint:errcheck,gosec,revive // test cleanup
+	})
 
 	_, err := readConfigFiles(dir, "networkconf")
 	if err == nil {
@@ -135,8 +150,12 @@ func TestReadConfigFilesUnreadableDir(t *testing.T) {
 func TestReadConfigFilesSkipsSubdirs(t *testing.T) {
 	dir := t.TempDir()
 	subdir := filepath.Join(dir, "networkconf")
-	os.MkdirAll(filepath.Join(subdir, "nested"), 0o755)
-	os.WriteFile(filepath.Join(subdir, "test.json"), []byte(`{"name":"test"}`), 0o644)
+	if err := os.MkdirAll(filepath.Join(subdir, "nested"), 0o750); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(subdir, "test.json"), []byte(`{"name":"test"}`), 0o600); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
 
 	files, err := readConfigFiles(dir, "networkconf")
 	if err != nil {
@@ -150,9 +169,15 @@ func TestReadConfigFilesSkipsSubdirs(t *testing.T) {
 func TestReadConfigFilesSkipsNonJSON(t *testing.T) {
 	dir := t.TempDir()
 	subdir := filepath.Join(dir, "networkconf")
-	os.MkdirAll(subdir, 0o755)
-	os.WriteFile(filepath.Join(subdir, "readme.txt"), []byte("not json"), 0o644)
-	os.WriteFile(filepath.Join(subdir, "test.json"), []byte(`{"name":"test"}`), 0o644)
+	if err := os.MkdirAll(subdir, 0o750); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(subdir, "readme.txt"), []byte("not json"), 0o600); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(subdir, "test.json"), []byte(`{"name":"test"}`), 0o600); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
 
 	files, err := readConfigFiles(dir, "networkconf")
 	if err != nil {

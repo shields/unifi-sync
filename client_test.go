@@ -10,8 +10,18 @@ import (
 	"testing"
 )
 
+const (
+	testAPILogin         = "/api/login"
+	testAPINetworkconf   = "/api/s/default/rest/networkconf"
+	testAPINetworkconfID = "/api/s/default/rest/networkconf/abc123"
+	testNameHomeNet      = "HomeNet"
+)
+
 func unifiResponse(data any) []byte {
-	b, _ := json.Marshal(map[string]any{"meta": map[string]any{"rc": "ok"}, "data": data})
+	b, err := json.Marshal(map[string]any{"meta": map[string]any{"rc": "ok"}, "data": data})
+	if err != nil {
+		panic("unifiResponse marshal: " + err.Error())
+	}
 	return b
 }
 
@@ -41,15 +51,20 @@ func TestNewClientTrailingSlash(t *testing.T) {
 
 func TestLogin(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/api/login" {
+		if r.URL.Path != testAPILogin {
 			t.Errorf("path = %q", r.URL.Path)
 		}
-		body, _ := io.ReadAll(r.Body)
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Fatalf("ReadAll: %v", err)
+		}
 		var creds map[string]string
-		json.Unmarshal(body, &creds)
+		if err := json.Unmarshal(body, &creds); err != nil {
+			t.Fatalf("Unmarshal: %v", err)
+		}
 		if creds["username"] != "admin" || creds["password"] != "pass" {
 			w.WriteHeader(http.StatusUnauthorized)
-			w.Write([]byte("bad creds"))
+			w.Write([]byte("bad creds")) //nolint:errcheck,revive // test handler
 			return
 		}
 		w.WriteHeader(http.StatusOK)
@@ -63,7 +78,7 @@ func TestLogin(t *testing.T) {
 }
 
 func TestLoginCapturesCsrfToken(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("X-Csrf-Token", "test-csrf-token")
 		w.WriteHeader(http.StatusOK)
 	}))
@@ -79,7 +94,7 @@ func TestLoginCapturesCsrfToken(t *testing.T) {
 }
 
 func TestLoginNoCsrfToken(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer srv.Close()
@@ -95,7 +110,7 @@ func TestLoginNoCsrfToken(t *testing.T) {
 
 func TestCsrfTokenSentOnPut(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/api/login" {
+		if r.URL.Path == testAPILogin {
 			w.Header().Set("X-Csrf-Token", "my-csrf")
 			w.WriteHeader(http.StatusOK)
 			return
@@ -103,19 +118,23 @@ func TestCsrfTokenSentOnPut(t *testing.T) {
 		if got := r.Header.Get("X-Csrf-Token"); got != "my-csrf" {
 			t.Errorf("X-Csrf-Token = %q, want %q", got, "my-csrf")
 		}
-		w.Write(unifiResponse([]map[string]any{{"_id": "abc123", "name": "test"}}))
+		w.Write(unifiResponse([]map[string]any{{"_id": "abc123", "name": "test"}})) //nolint:errcheck,revive // test handler
 	}))
 	defer srv.Close()
 
 	ctx := context.Background()
 	c := newClient(srv.URL, false)
-	c.login(ctx, "admin", "pass")
-	c.put(ctx, "default", "networkconf", "abc123", map[string]any{"name": "test"})
+	if err := c.login(ctx, "admin", "pass"); err != nil {
+		t.Fatalf("login: %v", err)
+	}
+	if err := c.put(ctx, "default", "networkconf", "abc123", map[string]any{"name": "test"}); err != nil {
+		t.Fatalf("put: %v", err)
+	}
 }
 
 func TestCsrfTokenSentOnPost(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/api/login" {
+		if r.URL.Path == testAPILogin {
 			w.Header().Set("X-Csrf-Token", "my-csrf")
 			w.WriteHeader(http.StatusOK)
 			return
@@ -123,20 +142,24 @@ func TestCsrfTokenSentOnPost(t *testing.T) {
 		if got := r.Header.Get("X-Csrf-Token"); got != "my-csrf" {
 			t.Errorf("X-Csrf-Token = %q, want %q", got, "my-csrf")
 		}
-		w.Write(unifiResponse([]map[string]any{{"_id": "1", "name": "test"}}))
+		w.Write(unifiResponse([]map[string]any{{"_id": "1", "name": "test"}})) //nolint:errcheck,revive // test handler
 	}))
 	defer srv.Close()
 
 	ctx := context.Background()
 	c := newClient(srv.URL, false)
-	c.login(ctx, "admin", "pass")
-	c.post(ctx, "default", "networkconf", map[string]any{"name": "test"})
+	if err := c.login(ctx, "admin", "pass"); err != nil {
+		t.Fatalf("login: %v", err)
+	}
+	if _, err := c.post(ctx, "default", "networkconf", map[string]any{"name": "test"}); err != nil {
+		t.Fatalf("post: %v", err)
+	}
 }
 
 func TestLoginFailure(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
-		w.Write([]byte("unauthorized"))
+		w.Write([]byte("unauthorized")) //nolint:errcheck,revive // test handler
 	}))
 	defer srv.Close()
 
@@ -165,11 +188,11 @@ func TestLoginBadURL(t *testing.T) {
 
 func TestList(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/api/s/default/rest/networkconf" {
+		if r.URL.Path != testAPINetworkconf {
 			t.Errorf("path = %q", r.URL.Path)
 		}
-		w.Write(unifiResponse([]map[string]any{
-			{"_id": "1", "name": "HomeNet"},
+		w.Write(unifiResponse([]map[string]any{ //nolint:errcheck,revive // test handler
+			{"_id": "1", "name": testNameHomeNet},
 			{"_id": "2", "name": "Guest Network"},
 		}))
 	}))
@@ -186,9 +209,9 @@ func TestList(t *testing.T) {
 }
 
 func TestListHTTPError(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("server error"))
+		w.Write([]byte("server error")) //nolint:errcheck,revive // test handler
 	}))
 	defer srv.Close()
 
@@ -217,10 +240,11 @@ func TestListBadURL(t *testing.T) {
 
 func TestGet(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/api/s/default/rest/networkconf/abc123" {
+		if r.URL.Path != testAPINetworkconfID {
 			t.Errorf("path = %q", r.URL.Path)
 		}
-		w.Write(unifiResponse([]map[string]any{{"_id": "abc123", "name": "HomeNet"}}))
+		resp := []map[string]any{{"_id": "abc123", "name": testNameHomeNet}}
+		w.Write(unifiResponse(resp)) //nolint:errcheck,revive // test handler
 	}))
 	defer srv.Close()
 
@@ -229,15 +253,15 @@ func TestGet(t *testing.T) {
 	if err != nil {
 		t.Fatalf("get() error = %v", err)
 	}
-	if obj["name"] != "HomeNet" {
+	if obj["name"] != testNameHomeNet {
 		t.Errorf("name = %v", obj["name"])
 	}
 }
 
 func TestGetHTTPError(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte("not found"))
+		w.Write([]byte("not found")) //nolint:errcheck,revive // test handler
 	}))
 	defer srv.Close()
 
@@ -265,8 +289,8 @@ func TestGetBadURL(t *testing.T) {
 }
 
 func TestGetEmptyResponse(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Write(unifiResponse([]map[string]any{}))
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Write(unifiResponse([]map[string]any{})) //nolint:errcheck,revive // test handler
 	}))
 	defer srv.Close()
 
@@ -282,10 +306,11 @@ func TestPut(t *testing.T) {
 		if r.Method != http.MethodPut {
 			t.Errorf("method = %q, want PUT", r.Method)
 		}
-		if r.URL.Path != "/api/s/default/rest/networkconf/abc123" {
+		if r.URL.Path != testAPINetworkconfID {
 			t.Errorf("path = %q", r.URL.Path)
 		}
-		w.Write(unifiResponse([]map[string]any{{"_id": "abc123", "name": "Updated"}}))
+		resp := []map[string]any{{"_id": "abc123", "name": "Updated"}}
+		w.Write(unifiResponse(resp)) //nolint:errcheck,revive // test handler
 	}))
 	defer srv.Close()
 
@@ -297,9 +322,9 @@ func TestPut(t *testing.T) {
 }
 
 func TestPutHTTPError(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusForbidden)
-		w.Write([]byte("forbidden"))
+		w.Write([]byte("forbidden")) //nolint:errcheck,revive // test handler
 	}))
 	defer srv.Close()
 
@@ -323,10 +348,11 @@ func TestPost(t *testing.T) {
 		if r.Method != http.MethodPost {
 			t.Errorf("method = %q, want POST", r.Method)
 		}
-		if r.URL.Path != "/api/s/default/rest/networkconf" {
+		if r.URL.Path != testAPINetworkconf {
 			t.Errorf("path = %q", r.URL.Path)
 		}
-		w.Write(unifiResponse([]map[string]any{{"_id": "new123", "name": "New Net"}}))
+		resp := []map[string]any{{"_id": "new123", "name": "New Net"}}
+		w.Write(unifiResponse(resp)) //nolint:errcheck,revive // test handler
 	}))
 	defer srv.Close()
 
@@ -341,9 +367,9 @@ func TestPost(t *testing.T) {
 }
 
 func TestPostHTTPError(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte("bad request"))
+		w.Write([]byte("bad request")) //nolint:errcheck,revive // test handler
 	}))
 	defer srv.Close()
 
@@ -363,8 +389,8 @@ func TestPostNetworkError(t *testing.T) {
 }
 
 func TestGetBadResponseBody(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("{invalid json"))
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Write([]byte("{invalid json")) //nolint:errcheck,revive // test handler
 	}))
 	defer srv.Close()
 
@@ -376,8 +402,8 @@ func TestGetBadResponseBody(t *testing.T) {
 }
 
 func TestPutBadResponseBody(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("{invalid json"))
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Write([]byte("{invalid json")) //nolint:errcheck,revive // test handler
 	}))
 	defer srv.Close()
 
@@ -421,8 +447,8 @@ func TestPostMarshalError(t *testing.T) {
 }
 
 func TestPostBadResponseBody(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("{invalid json"))
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Write([]byte("{invalid json")) //nolint:errcheck,revive // test handler
 	}))
 	defer srv.Close()
 
@@ -434,8 +460,8 @@ func TestPostBadResponseBody(t *testing.T) {
 }
 
 func TestPostEmptyResponse(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Write(unifiResponse([]map[string]any{}))
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Write(unifiResponse([]map[string]any{})) //nolint:errcheck,revive // test handler
 	}))
 	defer srv.Close()
 

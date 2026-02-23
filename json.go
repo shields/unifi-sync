@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 )
@@ -16,7 +17,7 @@ func decodeJSON(r io.Reader) (map[string]any, error) {
 		return nil, err
 	}
 	if dec.More() {
-		return nil, fmt.Errorf("unexpected trailing data after JSON object")
+		return nil, errors.New("unexpected trailing data after JSON object")
 	}
 	return obj, nil
 }
@@ -31,15 +32,15 @@ func decodeDataEnvelope(r io.Reader) ([]map[string]any, error) {
 		return nil, err
 	}
 	if dec.More() {
-		return nil, fmt.Errorf("unexpected trailing data after JSON object")
+		return nil, errors.New("unexpected trailing data after JSON object")
 	}
 	rawData, ok := envelope["data"]
 	if !ok {
-		return nil, fmt.Errorf("response missing \"data\" field")
+		return nil, errors.New("response missing \"data\" field")
 	}
 	arr, ok := rawData.([]any)
 	if !ok {
-		return nil, fmt.Errorf("\"data\" field is not an array")
+		return nil, errors.New("\"data\" field is not an array")
 	}
 	result := make([]map[string]any, len(arr))
 	for i, item := range arr {

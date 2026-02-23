@@ -36,7 +36,7 @@ func TestRedactSecretsAllFields(t *testing.T) {
 			t.Errorf("%s = %v, want %q", f, obj[f], redactedValue)
 		}
 	}
-	if obj["x_iapp"] != true {
+	if obj["x_iapp"] != true { //nolint:revive // explicit bool comparison for clarity
 		t.Error("x_iapp (non-secret) was modified")
 	}
 	if obj["x_ccode"] != "US" {
@@ -115,7 +115,6 @@ func TestInjectSecretsMissingEnv(t *testing.T) {
 }
 
 func TestInjectSecretsMissingFieldInObj(t *testing.T) {
-	// wlanconf has x_passphrase as secret, but object lacks it
 	obj := map[string]any{"name": "NoPassField"}
 	err := injectSecrets(obj, "wlanconf", "nopassfield")
 	if err != nil {
@@ -175,7 +174,6 @@ func TestAnnotateSecretChangesNoEnvVar(t *testing.T) {
 	remote := map[string]any{"name": "Guest WiFi", "x_passphrase": "secret"}
 
 	annotateSecretChanges(local, remote, "wlanconf", "guest-wifi")
-	// Can't resolve, so no annotation
 	if local["x_passphrase"] != redactedValue {
 		t.Errorf("local x_passphrase = %v, want %q", local["x_passphrase"], redactedValue)
 	}
