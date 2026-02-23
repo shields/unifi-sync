@@ -65,11 +65,11 @@ unifi-sync push
 
 ## Commands
 
-| Command | Description |
-|---------|-------------|
-| `pull`  | Fetch remote config and write to local files |
-| `push`  | Upload local config to the controller |
-| `diff`  | Compare local config with remote |
+| Command | Description                                    |
+| ------- | ---------------------------------------------- |
+| `pull`  | Fetch remote config and write to local files   |
+| `push`  | Upload local config to the controller          |
+| `diff`  | Compare local config with remote               |
 | `help`  | Show usage (`-h`, `-help`, `--help` also work) |
 
 ### Flags
@@ -87,22 +87,22 @@ Push-only:
 
 ### Exit codes
 
-| Code | Meaning |
-|------|---------|
-| 0    | Success |
+| Code | Meaning                                                         |
+| ---- | --------------------------------------------------------------- |
+| 0    | Success                                                         |
 | 1    | Differences found (diff), or post-push verification found drift |
-| 2    | Error |
+| 2    | Error                                                           |
 
 ## Environment variables
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `UNIFI_SYNC_URL` | Yes | Controller URL (e.g. `https://192.168.1.1:8443`) |
-| `UNIFI_SYNC_USERNAME` | Yes | Login username |
-| `UNIFI_SYNC_PASSWORD` | Yes | Login password |
-| `UNIFI_SYNC_SITE` | No | Site name (default: `default`) |
-| `UNIFI_SYNC_INSECURE_SKIP_TLS_VERIFY` | No | Set `true` to skip TLS certificate verification |
-| `NO_COLOR` | No | Disable colored diff output |
+| Variable                              | Required | Description                                      |
+| ------------------------------------- | -------- | ------------------------------------------------ |
+| `UNIFI_SYNC_URL`                      | Yes      | Controller URL (e.g. `https://192.168.1.1:8443`) |
+| `UNIFI_SYNC_USERNAME`                 | Yes      | Login username                                   |
+| `UNIFI_SYNC_PASSWORD`                 | Yes      | Login password                                   |
+| `UNIFI_SYNC_SITE`                     | No       | Site name (default: `default`)                   |
+| `UNIFI_SYNC_INSECURE_SKIP_TLS_VERIFY` | No       | Set `true` to skip TLS certificate verification  |
+| `NO_COLOR`                            | No       | Disable colored diff output                      |
 
 A `.env` file in the current directory is loaded automatically. Variables
 already set in the environment take precedence.
