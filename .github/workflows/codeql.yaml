@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-name: Test
+name: CodeQL
 
 on:
   push:
@@ -24,9 +24,10 @@ concurrency:
 
 permissions:
   contents: read
+  security-events: write
 
 jobs:
-  test:
+  analyze:
     runs-on: ubuntu-24.04
 
     steps:
@@ -38,5 +39,13 @@ jobs:
           go-version-file: "go.mod"
           cache: true
 
-      - name: Run tests
-        run: make test
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@38697555549f1db7851b81482ff19f1fa5c4fedc # v4.34.1
+        with:
+          languages: go
+          build-mode: autobuild
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@38697555549f1db7851b81482ff19f1fa5c4fedc # v4.34.1
+        with:
+          category: "/language:go"
