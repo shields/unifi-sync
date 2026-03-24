@@ -3,6 +3,7 @@
   extends: ["config:best-practices", ":semanticCommitsDisabled"],
   abandonmentThreshold: "2 years",
   platformAutomerge: true,
+  postUpdateOptions: ["goModTidy"],
   packageRules: [
     {
       description: "Automerge non-major updates",
