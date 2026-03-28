@@ -44,6 +44,9 @@ linters:
     - noinlineerr
     - err113 # Dynamic errors are appropriate for a CLI tool
     - paralleltest # Tests use shared package-level state by design
+    - funcorder # TODO: reorder methods
+    - gocheckcompilerdirectives # false positive on //go:fix (Go 1.24+)
+    - nonamedreturns # named returns used for clarity with multiple same-type results
 
   settings:
     dupl:

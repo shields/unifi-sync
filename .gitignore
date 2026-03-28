@@ -2,3 +2,4 @@ coverage.out
 coverage.html
 unifi-sync
 .env
+tools/node_modules/

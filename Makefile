@@ -12,33 +12,75 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-.PHONY: all build test coverage lint lint-fix fmt clean
+.PHONY: all build test coverage-html clean lint lint-fix fmt tools deps help dev check pre-commit
 
-all: fmt lint test build
+BINARY_NAME=unifi-sync
+COVERAGE_FILE=coverage.out
+COVERAGE_HTML=coverage.html
+GOCMD=go
+
+all: deps fmt lint test build
+
+help:
+	@echo "Available targets:"
+	@echo "  deps          - Download and verify dependencies"
+	@echo "  build         - Build the binary"
+	@echo "  test          - Run tests with race detector + 100% coverage check"
+	@echo "  coverage-html - Generate HTML coverage report"
+	@echo "  lint          - Run golangci-lint"
+	@echo "  lint-fix      - Run golangci-lint with auto-fix"
+	@echo "  fmt           - Format code with gofumpt and prettier"
+	@echo "  clean         - Remove built binary and test artifacts"
+
+tools:
+	@bun install --cwd tools
+
+deps: tools
+	@echo "==> Downloading dependencies..."
+	$(GOCMD) mod download
+	$(GOCMD) mod tidy
+	$(GOCMD) mod verify
 
 build:
-	go build -o unifi-sync
+	@echo "==> Building $(BINARY_NAME)..."
+	$(GOCMD) build -ldflags="-s -w" -o $(BINARY_NAME)
 
 test:
-	go test -race -coverprofile=coverage.out ./...
-	@coverage=$$(go tool cover -func=coverage.out | grep total | awk '{print $$3}'); \
+	@echo "==> Running tests..."
+	$(GOCMD) test -race -coverprofile=$(COVERAGE_FILE) ./...
+	@coverage=$$($(GOCMD) tool cover -func=$(COVERAGE_FILE) | grep total | awk '{print $$3}'); \
 	echo "Coverage: $$coverage"; \
 	if [ "$$coverage" != "100.0%" ]; then \
 		echo "FAIL: coverage is $$coverage, want 100.0%"; \
 		exit 1; \
 	fi
 
-coverage: test
-	go tool cover -html=coverage.out -o coverage.html
+coverage-html: test
+	@echo "==> Generating HTML coverage report..."
+	$(GOCMD) tool cover -html=$(COVERAGE_FILE) -o $(COVERAGE_HTML)
+	@echo "Coverage report generated at $(COVERAGE_HTML)"
 
 lint:
-	go tool golangci-lint run ./...
+	@echo "==> Running golangci-lint..."
+	$(GOCMD) tool golangci-lint run ./...
 
 lint-fix:
-	go tool golangci-lint run --fix ./...
+	@echo "==> Running golangci-lint with auto-fix..."
+	$(GOCMD) tool golangci-lint run --fix ./...
 
-fmt:
-	go tool gofumpt -w .
+fmt: tools
+	@echo "==> Formatting Go code..."
+	$(GOCMD) tool gofumpt -w .
+	@echo "==> Formatting Markdown, JSON, YAML files..."
+	@git ls-files -z '*.md' '*.json' '*.json5' '*.yaml' '*.yml' | xargs -0 -I{} sh -c '! test -L "$$1" && test -f "$$1" && echo "$$1"' _ {} | xargs -I{} sh -c 'cd tools && bunx prettier --write "../$$1"' _ {}
 
 clean:
-	rm -f unifi-sync coverage.out coverage.html
+	@echo "==> Cleaning..."
+	@rm -f $(BINARY_NAME) $(COVERAGE_FILE) $(COVERAGE_HTML)
+	@echo "Clean complete"
+
+dev: fmt lint test build
+
+check: deps fmt lint test
+
+pre-commit: fmt lint test

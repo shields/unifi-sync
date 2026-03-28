@@ -15,9 +15,19 @@
 pre-commit:
   parallel: false
   commands:
-    format:
+    format-go:
       glob: "**/*.go"
       run: go tool gofumpt -w {staged_files}
+      stage_fixed: true
+
+    format-prettier:
+      glob: "**/*.{md,json,json5,yaml,yml}"
+      run: ./tools/node_modules/.bin/prettier --write {staged_files}
+      stage_fixed: true
+
+    mod-tidy:
+      glob: "go.mod"
+      run: go mod tidy
       stage_fixed: true
 
     lint:

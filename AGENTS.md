@@ -5,11 +5,17 @@ This file provides guidance to AI agents when working with code in this reposito
 ## Build & Test Commands
 
 ```bash
-make fmt                    # Format code (gofumpt)
+make fmt                    # Format code (gofumpt + prettier)
 make lint                   # Run golangci-lint
 make test                   # Run tests with race detector + 100% coverage check
 make build                  # Build binary
-make all                    # fmt + lint + test + build
+make all                    # deps + fmt + lint + test + build
+make deps                   # Download and verify dependencies
+make dev                    # fmt + lint + test + build
+make check                  # deps + fmt + lint + test
+make pre-commit             # fmt + lint + test (matches lefthook)
+make coverage-html          # Generate HTML coverage report
+make help                   # List all targets
 ```
 
 Individual commands:
@@ -27,7 +33,7 @@ After any code change, run the full check before considering the work done:
 make all
 ```
 
-This formats with gofumpt, lints with golangci-lint (all linters enabled), runs tests with `-race`, and enforces 100.0% statement coverage. All must pass cleanly.
+This downloads dependencies, formats with gofumpt and prettier, lints with golangci-lint (all linters enabled), runs tests with `-race`, enforces 100.0% statement coverage, and builds the binary. All must pass cleanly.
 
 ## Architecture
 
