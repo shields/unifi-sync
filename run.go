@@ -90,7 +90,6 @@ func run(args []string, stdout, stderr io.Writer) int {
 			return 2
 		}
 	default:
-		//nolint:gosec // cmd is from CLI args, not rendered in HTML
 		fmt.Fprintf(stderr, "unknown command: %s\n", cmd) //nolint:errcheck,revive // writing to stderr
 		return 2
 	}

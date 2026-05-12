@@ -70,7 +70,7 @@ func (c *client) login(ctx context.Context, username, password string) error {
 		return err
 	}
 	req.Header.Set("Content-Type", "application/json")
-	resp, err := c.http.Do(req) //nolint:gosec // URL is constructed from trusted config, not user input
+	resp, err := c.http.Do(req)
 	if err != nil {
 		return fmt.Errorf("login request failed: %w", err)
 	}
@@ -101,7 +101,7 @@ func (c *client) doJSON(ctx context.Context, method, reqURL string, body []byte)
 	if token != "" {
 		req.Header.Set("X-Csrf-Token", token)
 	}
-	return c.http.Do(req) //nolint:gosec // URL is constructed from trusted config, not user input
+	return c.http.Do(req)
 }
 
 func (c *client) list(ctx context.Context, site, resourceType string) ([]map[string]any, error) {
@@ -111,7 +111,7 @@ func (c *client) list(ctx context.Context, site, resourceType string) ([]map[str
 	if err != nil {
 		return nil, err
 	}
-	resp, err := c.http.Do(req) //nolint:gosec // URL is constructed from trusted config, not user input
+	resp, err := c.http.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("list %s: %w", resourceType, err)
 	}
@@ -133,7 +133,7 @@ func (c *client) get(
 	if err != nil {
 		return nil, err
 	}
-	resp, err := c.http.Do(req) //nolint:gosec // URL is constructed from trusted config, not user input
+	resp, err := c.http.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("get %s/%s: %w", resourceType, id, err)
 	}
