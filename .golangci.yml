@@ -25,6 +25,7 @@ linters:
     - exhaustruct
     - funlen
     - godox
+    - gomodguard # deprecated since v2.12.0, replaced by gomodguard_v2
     - wsl
     - wrapcheck
     - varnamelen
@@ -62,9 +63,14 @@ linters:
     godot:
       scope: declarations
 
+    goconst:
+      ignore-tests: true
+
     gosec:
       severity: medium
       confidence: medium
+      excludes:
+        - G704 # SSRF taint analysis: not applicable to a CLI tool with operator-controlled URLs
 
     govet:
       enable-all: true
