@@ -162,6 +162,27 @@ func TestCmdPullSkipsNoName(t *testing.T) {
 	}
 }
 
+func TestCmdPullSkipsEmptySlug(t *testing.T) {
+	srv := httptest.NewServer(testMux(map[string][]map[string]any{
+		"/rest/networkconf": {{"_id": "n1", "name": "!!!"}},
+	}))
+	defer srv.Close()
+
+	dir := t.TempDir()
+	c := newClient(srv.URL, false)
+	var buf bytes.Buffer
+	if err := cmdPull(context.Background(), c, "default", dir, "networkconf", &buf); err != nil {
+		t.Fatalf("cmdPull() error = %v", err)
+	}
+	if buf.Len() != 0 {
+		t.Errorf("output should be empty for unsluggable name, got %q", buf.String())
+	}
+	// The name slugifies to "", which must not be written as a hidden ".json".
+	if _, err := os.Stat(filepath.Join(dir, "networkconf", ".json")); !os.IsNotExist(err) {
+		t.Errorf(".json file should not be created, stat err = %v", err)
+	}
+}
+
 func TestCmdPullSlugCollision(t *testing.T) {
 	srv := httptest.NewServer(testMux(map[string][]map[string]any{
 		"/rest/networkconf": {
@@ -946,5 +967,22 @@ func TestCmdDiffSkipsNoNameRemote(t *testing.T) {
 	}
 	if hasDiffs {
 		t.Error("hasDiffs = true, want false for nameless remote items")
+	}
+}
+
+func TestCmdDiffSkipsEmptySlugRemote(t *testing.T) {
+	srv := httptest.NewServer(testMux(map[string][]map[string]any{
+		"/rest/networkconf": {{"_id": "n1", "name": "!!!"}},
+	}))
+	defer srv.Close()
+
+	c := newClient(srv.URL, false)
+	var buf bytes.Buffer
+	hasDiffs, err := cmdDiff(context.Background(), c, "default", t.TempDir(), "networkconf", false, &buf)
+	if err != nil {
+		t.Fatalf("cmdDiff() error = %v", err)
+	}
+	if hasDiffs {
+		t.Error("hasDiffs = true, want false for remote item with unsluggable name")
 	}
 }

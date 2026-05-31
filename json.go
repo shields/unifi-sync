@@ -48,6 +48,19 @@ func decodeDataEnvelope(r io.Reader) ([]map[string]any, error) {
 	if dec.More() {
 		return nil, errors.New("unexpected trailing data after JSON object")
 	}
+	// The controller signals API-level failures via meta.rc, often with an
+	// HTTP 200 status, so surface them rather than treating the response as
+	// success.
+	if meta, ok := envelope["meta"].(map[string]any); ok {
+		rc, _ := meta["rc"].(string) //nolint:errcheck // missing/non-string rc means no error signal
+		if rc != "" && rc != "ok" {
+			msg, _ := meta["msg"].(string) //nolint:errcheck // missing/non-string msg is omitted from the error
+			if msg != "" {
+				return nil, fmt.Errorf("controller API error: %s", msg)
+			}
+			return nil, fmt.Errorf("controller API error (rc=%q)", rc)
+		}
+	}
 	rawData, ok := envelope["data"]
 	if !ok {
 		return nil, errors.New("response missing \"data\" field")

@@ -51,10 +51,11 @@ func cmdPull(ctx context.Context, c *client, site, configDir, filterType string,
 		slugsSeen := make(map[string]string)
 		for _, obj := range items {
 			name, _ := obj["name"].(string) //nolint:errcheck // empty string on failure is correct
-			if name == "" {
+			// slugify("") == "", so this also skips resources with no name.
+			slug := slugify(name)
+			if slug == "" {
 				continue
 			}
-			slug := slugify(name)
 			if existing, ok := slugsSeen[slug]; ok {
 				return fmt.Errorf("slug collision in %s: %q and %q both slugify to %q", rt, existing, name, slug)
 			}
@@ -167,10 +168,11 @@ func cmdDiff(
 		remoteBySlug := make(map[string]map[string]any)
 		for _, obj := range remoteItems {
 			name, _ := obj["name"].(string) //nolint:errcheck // empty string on failure is correct
-			if name == "" {
+			// slugify("") == "", so this also skips resources with no name.
+			slug := slugify(name)
+			if slug == "" {
 				continue
 			}
-			slug := slugify(name)
 			if _, exists := remoteBySlug[slug]; exists {
 				return false, fmt.Errorf(
 					"slug collision in %s: multiple remote resources slugify to %q", rt, slug,

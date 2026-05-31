@@ -102,6 +102,28 @@ func TestDecodeJSONArrayBadElement(t *testing.T) {
 	}
 }
 
+func TestDecodeDataEnvelopeAPIErrorWithMessage(t *testing.T) {
+	input := `{"meta":{"rc":"error","msg":"api.err.InvalidPayload"},"data":[]}`
+	_, err := decodeDataEnvelope(strings.NewReader(input))
+	if err == nil {
+		t.Fatal("decodeDataEnvelope(rc=error) should return error")
+	}
+	if !strings.Contains(err.Error(), "api.err.InvalidPayload") {
+		t.Errorf("error = %v, want it to include the controller message", err)
+	}
+}
+
+func TestDecodeDataEnvelopeAPIErrorNoMessage(t *testing.T) {
+	input := `{"meta":{"rc":"error"},"data":[]}`
+	_, err := decodeDataEnvelope(strings.NewReader(input))
+	if err == nil {
+		t.Fatal("decodeDataEnvelope(rc=error, no msg) should return error")
+	}
+	if !strings.Contains(err.Error(), "rc=") {
+		t.Errorf("error = %v, want it to surface the rc value", err)
+	}
+}
+
 func TestMarshalJSON(t *testing.T) {
 	obj := map[string]any{
 		"b": "two",
