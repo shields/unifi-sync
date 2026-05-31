@@ -21,6 +21,7 @@ import (
 	"math"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"testing"
 )
 
@@ -191,6 +192,38 @@ func TestCsrfTokenSentOnPost(t *testing.T) {
 	}
 	if _, err := c.post(ctx, "default", "networkconf", map[string]any{"name": "test"}); err != nil {
 		t.Fatalf("post: %v", err)
+	}
+}
+
+func TestCsrfTokenRotates(t *testing.T) {
+	var sent []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == testAPILogin {
+			w.Header().Set("X-Csrf-Token", "token-1")
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+		sent = append(sent, r.Header.Get("X-Csrf-Token"))
+		// Rotate: each response hands out the next token, which the client
+		// must use on its next request.
+		w.Header().Set("X-Csrf-Token", "token-"+strconv.Itoa(len(sent)+1))
+		w.Write(unifiResponse([]map[string]any{{"_id": "1", "name": "x"}})) //nolint:errcheck,revive // test handler
+	}))
+	defer srv.Close()
+
+	ctx := context.Background()
+	c := newClient(srv.URL, false)
+	if err := c.login(ctx, "admin", "pass"); err != nil {
+		t.Fatalf("login: %v", err)
+	}
+	if err := c.put(ctx, "default", "networkconf", "id1", map[string]any{"name": "x"}); err != nil {
+		t.Fatalf("put 1: %v", err)
+	}
+	if err := c.put(ctx, "default", "networkconf", "id2", map[string]any{"name": "y"}); err != nil {
+		t.Fatalf("put 2: %v", err)
+	}
+	if len(sent) != 2 || sent[0] != "token-1" || sent[1] != "token-2" {
+		t.Errorf("tokens sent = %v, want [token-1 token-2] (rotated from each response)", sent)
 	}
 }
 

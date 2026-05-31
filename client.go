@@ -79,12 +79,19 @@ func (c *client) login(ctx context.Context, username, password string) error {
 		msg, _ := io.ReadAll(resp.Body) //nolint:errcheck // best-effort read for error message
 		return fmt.Errorf("login failed (status %d): %s", resp.StatusCode, msg)
 	}
+	c.captureCSRF(resp)
+	return nil
+}
+
+// captureCSRF stores the CSRF token from a response if it carries one. UniFi OS
+// controllers rotate the token on every response and reject a stale one, so it
+// must be refreshed from each response rather than relying on the login token.
+func (c *client) captureCSRF(resp *http.Response) {
 	if token := resp.Header.Get("X-Csrf-Token"); token != "" {
 		c.mu.Lock()
 		c.csrfToken = token
 		c.mu.Unlock()
 	}
-	return nil
 }
 
 // doJSON builds an HTTP request with JSON body and CSRF token, executes it,
@@ -101,7 +108,12 @@ func (c *client) doJSON(ctx context.Context, method, reqURL string, body []byte)
 	if token != "" {
 		req.Header.Set("X-Csrf-Token", token)
 	}
-	return c.http.Do(req)
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	c.captureCSRF(resp)
+	return resp, nil
 }
 
 func (c *client) list(ctx context.Context, site, resourceType string) ([]map[string]any, error) {
@@ -116,6 +128,7 @@ func (c *client) list(ctx context.Context, site, resourceType string) ([]map[str
 		return nil, fmt.Errorf("list %s: %w", resourceType, err)
 	}
 	defer drainBody(resp)
+	c.captureCSRF(resp)
 	if resp.StatusCode != http.StatusOK {
 		msg, _ := io.ReadAll(resp.Body) //nolint:errcheck // best-effort read for error message
 		return nil, fmt.Errorf("list %s (status %d): %s", resourceType, resp.StatusCode, msg)
@@ -138,6 +151,7 @@ func (c *client) get(
 		return nil, fmt.Errorf("get %s/%s: %w", resourceType, id, err)
 	}
 	defer drainBody(resp)
+	c.captureCSRF(resp)
 	if resp.StatusCode != http.StatusOK {
 		msg, _ := io.ReadAll(resp.Body) //nolint:errcheck // best-effort read for error message
 		return nil, fmt.Errorf("get %s/%s (status %d): %s", resourceType, id, resp.StatusCode, msg)
