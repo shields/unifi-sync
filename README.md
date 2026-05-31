@@ -107,6 +107,10 @@ Push-only:
 A `.env` file in the current directory is loaded automatically. Variables
 already set in the environment take precedence.
 
+Colored diff output is enabled only when writing to a terminal (and `TERM` is
+set); it is automatically disabled when output is redirected to a file or pipe,
+or when `NO_COLOR` is set.
+
 ## Secret handling
 
 WiFi secrets (`x_passphrase`, `x_iapp_key`, etc.) are automatically redacted to

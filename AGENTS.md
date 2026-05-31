@@ -62,4 +62,4 @@ Tests use `httptest.NewServer` for mock API servers and table-driven test patter
 ### Environment Variables
 
 Required: `UNIFI_SYNC_URL`, `UNIFI_SYNC_USERNAME`, `UNIFI_SYNC_PASSWORD`
-Optional: `UNIFI_SYNC_SITE` (default: "default"), `UNIFI_SYNC_INSECURE_SKIP_TLS_VERIFY` ("true" to skip TLS verify), `TERM`/`NO_COLOR` (color control)
+Optional: `UNIFI_SYNC_SITE` (default: "default"), `UNIFI_SYNC_INSECURE_SKIP_TLS_VERIFY` ("true" to skip TLS verify), `TERM`/`NO_COLOR` (color control; color also requires stdout to be a terminal)

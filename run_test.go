@@ -60,6 +60,15 @@ func loginMux(responses map[string][]map[string]any) http.Handler {
 	})
 }
 
+// setTerminal overrides the terminal check so color-gate tests are independent
+// of the buffer they write to. The real isTerminal is covered by TestIsTerminal.
+func setTerminal(t *testing.T, isTTY bool) {
+	t.Helper()
+	orig := isTerminalFn
+	isTerminalFn = func(io.Writer) bool { return isTTY }
+	t.Cleanup(func() { isTerminalFn = orig })
+}
+
 func TestRunNoArgs(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(nil, &stdout, &stderr)
@@ -360,14 +369,17 @@ func TestRunDiffError(t *testing.T) {
 	}
 }
 
-func TestRunDiffColor(t *testing.T) {
+// diffOutputHasANSI runs `diff` against a server that differs from local and
+// reports whether stdout contained ANSI color codes. Callers set TERM/NO_COLOR
+// and the terminal state before calling.
+func diffOutputHasANSI(t *testing.T) bool {
+	t.Helper()
 	srv := httptest.NewServer(loginMux(map[string][]map[string]any{
 		"/rest/networkconf": {{"_id": "n1", "name": testNameHomeNet, "vlan": json.Number("10")}},
 	}))
 	defer srv.Close()
 
 	setRequiredEnv(t, srv.URL)
-	t.Setenv("TERM", "xterm")
 	dir := t.TempDir()
 	if err := writeConfigFile(dir, "networkconf", "homenet", map[string]any{
 		"_id": "n1", "name": testNameHomeNet, "vlan": json.Number("20"),
@@ -378,36 +390,75 @@ func TestRunDiffColor(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run([]string{"diff", "-config", dir, "-type", "networkconf"}, &stdout, &stderr)
 	if code != 1 {
-		t.Errorf("run(diff color) = %d, want 1", code)
+		t.Fatalf("run(diff) = %d, want 1, stderr: %s", code, stderr.String())
 	}
-	if !strings.Contains(stdout.String(), "\033[") {
-		t.Error("output should contain ANSI escape codes when TERM is set")
+	return strings.Contains(stdout.String(), "\033[")
+}
+
+func TestRunDiffColor(t *testing.T) {
+	setTerminal(t, true)
+	t.Setenv("TERM", "xterm")
+	t.Setenv("NO_COLOR", "")
+	if !diffOutputHasANSI(t) {
+		t.Error("expected ANSI color on a terminal with TERM set")
+	}
+}
+
+func TestRunDiffNonTerminalSuppressesColor(t *testing.T) {
+	// TERM set and NO_COLOR unset, but stdout is not a terminal -> no color.
+	setTerminal(t, false)
+	t.Setenv("TERM", "xterm")
+	t.Setenv("NO_COLOR", "")
+	if diffOutputHasANSI(t) {
+		t.Error("expected no ANSI color when stdout is not a terminal")
 	}
 }
 
 func TestRunDiffNoColor(t *testing.T) {
-	srv := httptest.NewServer(loginMux(map[string][]map[string]any{
-		"/rest/networkconf": {{"_id": "n1", "name": testNameHomeNet, "vlan": json.Number("10")}},
-	}))
-	defer srv.Close()
-
-	setRequiredEnv(t, srv.URL)
+	// On a terminal, NO_COLOR alone must still disable color.
+	setTerminal(t, true)
 	t.Setenv("NO_COLOR", "1")
 	t.Setenv("TERM", "xterm")
-	dir := t.TempDir()
-	if err := writeConfigFile(dir, "networkconf", "homenet", map[string]any{
-		"_id": "n1", "name": testNameHomeNet, "vlan": json.Number("20"),
-	}); err != nil {
-		t.Fatalf("writeConfigFile: %v", err)
+	if diffOutputHasANSI(t) {
+		t.Error("expected no ANSI color when NO_COLOR is set")
 	}
+}
 
-	var stdout, stderr bytes.Buffer
-	code := run([]string{"diff", "-config", dir, "-type", "networkconf"}, &stdout, &stderr)
-	if code != 1 {
-		t.Errorf("run(diff no-color) = %d, want 1", code)
+func TestIsTerminal(t *testing.T) {
+	// A bytes.Buffer is not an *os.File.
+	if isTerminal(&bytes.Buffer{}) {
+		t.Error("isTerminal(buffer) = true, want false")
 	}
-	if strings.Contains(stdout.String(), "\033[") {
-		t.Error("output should NOT contain ANSI when NO_COLOR is set")
+	// A typed-nil *os.File must report false without panicking.
+	if isTerminal((*os.File)(nil)) {
+		t.Error("isTerminal(nil *os.File) = true, want false")
+	}
+	// A regular file is not a character device.
+	f, err := os.CreateTemp(t.TempDir(), "out")
+	if err != nil {
+		t.Fatalf("CreateTemp: %v", err)
+	}
+	defer f.Close() //nolint:errcheck // test cleanup
+	if isTerminal(f) {
+		t.Error("isTerminal(regular file) = true, want false")
+	}
+	// A closed file cannot be Stat'd.
+	closed, err := os.CreateTemp(t.TempDir(), "closed")
+	if err != nil {
+		t.Fatalf("CreateTemp: %v", err)
+	}
+	_ = closed.Close() //nolint:errcheck // intentionally closed to force a Stat error below
+	if isTerminal(closed) {
+		t.Error("isTerminal(closed file) = true, want false")
+	}
+	// A character device (os.DevNull) reports as a terminal under this stdlib heuristic.
+	devNull, err := os.Open(os.DevNull)
+	if err != nil {
+		t.Fatalf("open %s: %v", os.DevNull, err)
+	}
+	defer devNull.Close() //nolint:errcheck // test cleanup
+	if !isTerminal(devNull) {
+		t.Errorf("isTerminal(%s) = false, want true", os.DevNull)
 	}
 }
 

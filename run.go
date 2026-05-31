@@ -52,6 +52,24 @@ func printUsage(w io.Writer) {
 			"  NO_COLOR                             disable colored output\n")
 }
 
+// isTerminal reports whether w writes to a character device (a terminal). It is
+// used to suppress ANSI color when output is redirected to a file or pipe.
+func isTerminal(w io.Writer) bool {
+	f, ok := w.(*os.File)
+	if !ok || f == nil {
+		return false
+	}
+	info, err := f.Stat()
+	if err != nil {
+		return false
+	}
+	return info.Mode()&os.ModeCharDevice != 0
+}
+
+// isTerminalFn is a package var so tests can simulate terminal vs non-terminal
+// output independently of the buffers they pass to run.
+var isTerminalFn = isTerminal
+
 func run(args []string, stdout, stderr io.Writer) int {
 	if len(args) == 0 {
 		printUsage(stderr)
@@ -125,7 +143,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return 2
 	}
 
-	color := os.Getenv("TERM") != "" && os.Getenv("NO_COLOR") == ""
+	color := os.Getenv("TERM") != "" && os.Getenv("NO_COLOR") == "" && isTerminalFn(stdout)
 
 	switch cmd {
 	case "pull":
