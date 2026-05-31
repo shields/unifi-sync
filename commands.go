@@ -173,7 +173,8 @@ func cmdDiff(
 			slug := slugify(name)
 			if _, exists := remoteBySlug[slug]; exists {
 				return false, fmt.Errorf(
-					"slug collision in %s: multiple remote resources slugify to %q", rt, slug)
+					"slug collision in %s: multiple remote resources slugify to %q", rt, slug,
+				)
 			}
 			remoteBySlug[slug] = obj
 		}
