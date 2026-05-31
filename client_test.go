@@ -39,6 +39,20 @@ func unifiResponse(data any) []byte {
 	return b
 }
 
+// clientTransport extracts the concrete transport from a client so tests can
+// assert how the security-sensitive verify toggle and proxy are wired.
+func clientTransport(t *testing.T, c *client) *http.Transport {
+	t.Helper()
+	tr, ok := c.http.Transport.(*http.Transport)
+	if !ok {
+		t.Fatalf("transport type = %T, want *http.Transport", c.http.Transport)
+	}
+	if tr.TLSClientConfig == nil {
+		t.Fatal("TLSClientConfig not set")
+	}
+	return tr
+}
+
 func TestNewClient(t *testing.T) {
 	c := newClient("https://example.com", true)
 	if c.baseURL != "https://example.com" {
@@ -47,12 +61,22 @@ func TestNewClient(t *testing.T) {
 	if c.http.Jar == nil {
 		t.Error("cookie jar not set")
 	}
+	tr := clientTransport(t, c)
+	if !tr.TLSClientConfig.InsecureSkipVerify {
+		t.Error("InsecureSkipVerify = false, want true when insecure=true")
+	}
+	if tr.Proxy == nil {
+		t.Error("Proxy not set from environment")
+	}
 }
 
 func TestNewClientSecure(t *testing.T) {
 	c := newClient("https://example.com", false)
 	if c.http.Jar == nil {
 		t.Error("cookie jar not set")
+	}
+	if clientTransport(t, c).TLSClientConfig.InsecureSkipVerify {
+		t.Error("InsecureSkipVerify = true, want false when insecure=false")
 	}
 }
 
