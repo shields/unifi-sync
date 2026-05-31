@@ -21,6 +21,23 @@ import (
 )
 
 var secretFields = map[string][]string{
+	// networkconf secrets appear only when a VPN, PPPoE, or WireGuard feature is
+	// configured. Public material (x_ca_crt, x_server_crt, x_shared_client_crt,
+	// x_dh_key) is deliberately excluded: redacting it would force it to be
+	// supplied via env on push for no security benefit.
+	"networkconf": {
+		"x_wan_password",                 // PPPoE/WAN password
+		"x_pptpc_password",               // PPTP client password
+		"x_ipsec_pre_shared_key",         // IPsec pre-shared key
+		"wireguard_client_preshared_key", // WireGuard client pre-shared key
+		"x_wireguard_private_key",        // WireGuard private key
+		"x_openvpn_password",             // OpenVPN password
+		"x_openvpn_shared_secret_key",    // OpenVPN static key
+		"x_auth_key",                     // VPN tls-auth key
+		"x_ca_key",                       // CA private key
+		"x_server_key",                   // server private key
+		"x_shared_client_key",            // shared-client private key
+	},
 	"wlanconf": {"x_passphrase", "x_iapp_key", "x_wep", "x_wep_key", "x_radius_secret_1"},
 }
 

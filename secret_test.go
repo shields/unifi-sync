@@ -59,13 +59,43 @@ func TestRedactSecretsAllFields(t *testing.T) {
 }
 
 func TestRedactSecretsNoSecretFields(t *testing.T) {
+	// usergroup carries no secret-bearing fields; nothing should change.
 	obj := map[string]any{
-		"name": "LAN",
-		"vlan": "100",
+		"name":            "Default",
+		"qos_rate_max_up": "0",
+	}
+	redactSecrets(obj, "usergroup")
+	if obj["name"] != "Default" {
+		t.Errorf("name was modified: %v", obj["name"])
+	}
+}
+
+func TestRedactSecretsNetworkconfVPN(t *testing.T) {
+	secrets := []string{
+		"x_wan_password", "x_pptpc_password", "x_ipsec_pre_shared_key",
+		"wireguard_client_preshared_key", "x_wireguard_private_key",
+		"x_openvpn_password", "x_openvpn_shared_secret_key", "x_auth_key",
+		"x_ca_key", "x_server_key", "x_shared_client_key",
+	}
+	obj := map[string]any{
+		"name":         "Office VPN",
+		"x_ca_crt":     "-----BEGIN CERTIFICATE-----", // public, must NOT be redacted
+		"wan_username": "pppoe-user",                  // identifier, not a secret
+	}
+	for _, f := range secrets {
+		obj[f] = "value-of-" + f
 	}
 	redactSecrets(obj, "networkconf")
-	if obj["name"] != "LAN" {
-		t.Errorf("name was modified: %v", obj["name"])
+	for _, f := range secrets {
+		if obj[f] != redactedValue {
+			t.Errorf("%s = %v, want %q", f, obj[f], redactedValue)
+		}
+	}
+	if obj["x_ca_crt"] != "-----BEGIN CERTIFICATE-----" {
+		t.Errorf("x_ca_crt (public cert) was redacted: %v", obj["x_ca_crt"])
+	}
+	if obj["wan_username"] != "pppoe-user" {
+		t.Errorf("wan_username (non-secret) was modified: %v", obj["wan_username"])
 	}
 }
 
@@ -156,10 +186,25 @@ func TestInjectSecretsMissingFieldInObj(t *testing.T) {
 }
 
 func TestInjectSecretsNoSecretFields(t *testing.T) {
-	obj := map[string]any{"name": "LAN"}
-	err := injectSecrets(obj, "networkconf", "lan")
+	obj := map[string]any{"name": "Default"}
+	err := injectSecrets(obj, "usergroup", "default")
 	if err != nil {
 		t.Fatalf("injectSecrets() error = %v", err)
+	}
+}
+
+func TestInjectSecretsNetworkconf(t *testing.T) {
+	obj := map[string]any{
+		"name":                   "Office VPN",
+		"x_ipsec_pre_shared_key": redactedValue,
+	}
+	t.Setenv("UNIFI_SYNC_SECRET_OFFICE_VPN_X_IPSEC_PRE_SHARED_KEY", "psk-injected")
+
+	if err := injectSecrets(obj, "networkconf", "office-vpn"); err != nil {
+		t.Fatalf("injectSecrets() error = %v", err)
+	}
+	if obj["x_ipsec_pre_shared_key"] != "psk-injected" {
+		t.Errorf("x_ipsec_pre_shared_key = %v, want psk-injected", obj["x_ipsec_pre_shared_key"])
 	}
 }
 
@@ -223,10 +268,10 @@ func TestAnnotateSecretChangesPlaintextLocal(t *testing.T) {
 }
 
 func TestAnnotateSecretChangesNoSecretType(t *testing.T) {
-	local := map[string]any{"name": "HomeNet"}
-	remote := map[string]any{"name": "HomeNet"}
-	annotateSecretChanges(local, remote, "networkconf", "homenet")
-	if local["name"] != "HomeNet" {
+	local := map[string]any{"name": "Default"}
+	remote := map[string]any{"name": "Default"}
+	annotateSecretChanges(local, remote, "usergroup", "default")
+	if local["name"] != "Default" {
 		t.Errorf("name was modified: %v", local["name"])
 	}
 }

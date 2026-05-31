@@ -113,8 +113,13 @@ or when `NO_COLOR` is set.
 
 ## Secret handling
 
-WiFi secrets (`x_passphrase`, `x_iapp_key`, etc.) are automatically redacted to
-`"__REDACTED__"` on pull so they can be safely committed to version control.
+Secrets are automatically redacted to `"__REDACTED__"` on pull so they can be
+safely committed to version control. This covers WiFi secrets on `wlanconf`
+(`x_passphrase`, `x_iapp_key`, …) and VPN, PPPoE, and WireGuard secrets on
+`networkconf` (`x_wan_password`, `x_ipsec_pre_shared_key`,
+`wireguard_client_preshared_key`, OpenVPN/PPTP passwords, and private keys).
+Public certificates and Diffie-Hellman parameters are left intact, since they
+are not secret and would otherwise have to be re-supplied on every push.
 
 On push, secrets are injected from environment variables following the naming
 convention:

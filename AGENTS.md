@@ -48,7 +48,7 @@ The controller API returns resources wrapped in `{"meta":{...},"data":[...]}` en
 - **`run.go`** — CLI entry point: flag parsing, command dispatch, exit codes (0=success, 1=diff found, 2=error)
 - **`commands.go`** — `cmdPull`, `cmdPush`, `cmdDiff` orchestration
 - **`client.go`** — HTTP client with cookie-jar auth, CSRF token (thread-safe via RWMutex), TLS/proxy support
-- **`secret.go`** — Redacts secrets on pull, injects from env vars on push. Secret fields are hardcoded in `secretFields` (e.g. `x_passphrase`, `x_iapp_key`, `x_wep`, `x_wep_key`, `x_radius_secret_1`)
+- **`secret.go`** — Redacts secrets on pull, injects from env vars on push. Secret fields are hardcoded per resource type in `secretFields`: `wlanconf` WiFi secrets (`x_passphrase`, `x_iapp_key`, `x_wep`, …) and `networkconf` VPN/PPPoE/WireGuard secrets (`x_wan_password`, `x_ipsec_pre_shared_key`, `wireguard_client_preshared_key`, …). Public certs/keys (`x_ca_crt`, `x_dh_key`, …) are intentionally not redacted
 - **`diff.go`** — LCS-based line diff with ANSI color support
 - **`config.go`** — Reads/writes per-resource JSON files organized by type and slug
 - **`json.go`** — JSON helpers using `json.Number` to preserve numeric precision
