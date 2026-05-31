@@ -117,11 +117,27 @@ func annotateSecretChanges(local, remote map[string]any, resourceType, slug stri
 	}
 }
 
-// secretEnvVar builds the env var name for a secret field.
-// Slugs only contain [a-z0-9-] (produced by slugify), so hyphen is the only
-// character that needs replacing.
+// secretEnvVar builds the env var name for a secret field. Slugs may contain
+// Unicode letters (slugify preserves them), so any rune that is not an ASCII
+// letter, digit, or hyphen is encoded as __<HEX>__ (its uppercase hex code
+// point) to keep the name a valid POSIX identifier. ASCII slugs are unchanged,
+// e.g. "guest-wifi" -> "GUEST_WIFI"; "café" -> "CAF__E9__".
 func secretEnvVar(slug, field string) string {
-	slugPart := strings.ToUpper(strings.ReplaceAll(slug, "-", "_"))
-	fieldPart := strings.ToUpper(field)
-	return "UNIFI_SYNC_SECRET_" + slugPart + "_" + fieldPart
+	var b strings.Builder
+	_, _ = b.WriteString("UNIFI_SYNC_SECRET_")
+	for _, r := range slug {
+		switch {
+		case r >= 'a' && r <= 'z':
+			_, _ = b.WriteRune(r - 'a' + 'A')
+		case r >= '0' && r <= '9':
+			_, _ = b.WriteRune(r)
+		case r == '-':
+			_ = b.WriteByte('_')
+		default:
+			_, _ = fmt.Fprintf(&b, "__%X__", r)
+		}
+	}
+	_ = b.WriteByte('_')
+	_, _ = b.WriteString(strings.ToUpper(field))
+	return b.String()
 }

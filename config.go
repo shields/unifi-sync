@@ -20,7 +20,9 @@ import (
 	"strings"
 )
 
-// writeConfigFile writes a JSON config file. Slug is safe (from slugify: [a-z0-9-]).
+// writeConfigFile writes a JSON config file. The slug comes from slugify, which
+// yields a filesystem-safe basename (letters and digits joined by single
+// hyphens; no path separators or metacharacters).
 func writeConfigFile(dir, resourceType, slug string, data map[string]any) error {
 	subdir := filepath.Join(dir, resourceType)
 	//nolint:gosec // config dirs need world-readable perms

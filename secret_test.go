@@ -101,6 +101,22 @@ func TestInjectSecrets(t *testing.T) {
 	}
 }
 
+func TestInjectSecretsNonASCIISlug(t *testing.T) {
+	obj := map[string]any{
+		"name":         "Café WiFi",
+		"x_passphrase": redactedValue,
+	}
+	// A non-ASCII WLAN name must still map to a valid, settable env var name.
+	t.Setenv("UNIFI_SYNC_SECRET_CAF__E9___WIFI_X_PASSPHRASE", "héllo-secret")
+
+	if err := injectSecrets(obj, "wlanconf", "café-wifi"); err != nil {
+		t.Fatalf("injectSecrets() error = %v", err)
+	}
+	if obj["x_passphrase"] != "héllo-secret" {
+		t.Errorf("x_passphrase = %v, want injected secret", obj["x_passphrase"])
+	}
+}
+
 func TestInjectSecretsNotRedacted(t *testing.T) {
 	obj := map[string]any{
 		"name":         "HomeNet WiFi",
@@ -240,6 +256,8 @@ func TestSecretEnvVarName(t *testing.T) {
 		{"legacy-net", "x_wep", "UNIFI_SYNC_SECRET_LEGACY_NET_X_WEP"},
 		{"legacy-net", "x_wep_key", "UNIFI_SYNC_SECRET_LEGACY_NET_X_WEP_KEY"},
 		{"corp-wifi", "x_radius_secret_1", "UNIFI_SYNC_SECRET_CORP_WIFI_X_RADIUS_SECRET_1"},
+		{"wifi-5ghz", "x_passphrase", "UNIFI_SYNC_SECRET_WIFI_5GHZ_X_PASSPHRASE"},
+		{"café-wifi", "x_passphrase", "UNIFI_SYNC_SECRET_CAF__E9___WIFI_X_PASSPHRASE"},
 	}
 	for _, tt := range tests {
 		got := secretEnvVar(tt.slug, tt.field)
