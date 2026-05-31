@@ -6,8 +6,8 @@ local versus remote state.
 
 This tool operates on complete configs, so unlike Terraform/OpenTofu providers,
 it does not require updating for new fields, and it cannot clobber unknown
-fields when writing back. It reads back the config after each write in
-order to verify that there are no diffs.
+fields when writing back. After a push, it reads the config back and diffs it
+against the local files to verify the controller accepted the changes.
 
 It typically operates in under 500 ms per device.
 
