@@ -18,7 +18,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"maps"
 	"slices"
 	"strings"
 )
@@ -96,9 +95,9 @@ func cmdPush( //nolint:revive // dryRun control flag is inherent to the command 
 		slices.Sort(slugs)
 		for _, slug := range slugs {
 			obj := files[slug]
-			// Copy for API use; original retains __REDACTED__ for write-back
-			apiObj := make(map[string]any, len(obj))
-			maps.Copy(apiObj, obj)
+			// Deep copy for API use so injecting secrets into nested arrays does
+			// not mutate the original, which keeps __REDACTED__ for write-back.
+			apiObj := deepCopyJSONObject(obj)
 			if injectErr := injectSecrets(apiObj, rt, slug); injectErr != nil {
 				return false, injectErr
 			}

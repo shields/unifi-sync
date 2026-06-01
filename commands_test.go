@@ -366,6 +366,40 @@ func TestCmdPushCreatePreservesRedacted(t *testing.T) {
 	}
 }
 
+func TestCmdPushCreatePreservesRedactedNested(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		resp := []map[string]any{{"_id": "new1", "name": "Guest WiFi"}}
+		w.Write(unifiResponse(resp)) //nolint:errcheck,revive // test handler
+	}))
+	defer srv.Close()
+
+	dir := t.TempDir()
+	if err := writeConfigFile(dir, "wlanconf", "guest-wifi", map[string]any{
+		"name": "Guest WiFi",
+		"private_preshared_keys": []any{
+			map[string]any{"networkconf_id": "net0", "password": redactedValue},
+		},
+	}); err != nil {
+		t.Fatalf("writeConfigFile: %v", err)
+	}
+	t.Setenv("UNIFI_SYNC_SECRET_GUEST_WIFI_PRIVATE_PRESHARED_KEYS_0_PASSWORD", "realpass")
+
+	c := newClient(srv.URL, false)
+	if _, err := cmdPush(context.Background(), c, "default", dir, "wlanconf", false, false, io.Discard); err != nil {
+		t.Fatalf("cmdPush() error = %v", err)
+	}
+
+	written, err := readConfigFile(filepath.Join(dir, "wlanconf", "guest-wifi.json"))
+	if err != nil {
+		t.Fatalf("readConfigFile() error = %v", err)
+	}
+	// The injected cleartext must not be written back to disk: the deep copy
+	// keeps the original (and therefore the file) redacted.
+	if got := nestedElem(t, written, "private_preshared_keys", 0)["password"]; got != redactedValue {
+		t.Errorf("written nested password = %v, want %q (injected secret leaked to disk)", got, redactedValue)
+	}
+}
+
 func TestCmdPushCreateWriteBackError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		resp := []map[string]any{{"_id": "new1", "name": testNameHomeNet}}

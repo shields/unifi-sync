@@ -80,6 +80,35 @@ func decodeDataEnvelope(r io.Reader) ([]map[string]any, error) {
 	return result, nil
 }
 
+// deepCopyJSONObject returns a deep copy of a JSON-decoded object so that
+// mutating the copy — for example, injecting secrets into nested arrays — never
+// affects the original.
+func deepCopyJSONObject(obj map[string]any) map[string]any {
+	cp := make(map[string]any, len(obj))
+	for k, v := range obj {
+		cp[k] = deepCopyJSONValue(v)
+	}
+	return cp
+}
+
+// deepCopyJSONValue deep-copies a value decoded from JSON. Maps and slices are
+// copied recursively; scalars (string, bool, json.Number, nil) are immutable and
+// returned as-is.
+func deepCopyJSONValue(v any) any {
+	switch val := v.(type) {
+	case map[string]any:
+		return deepCopyJSONObject(val)
+	case []any:
+		cp := make([]any, len(val))
+		for i, e := range val {
+			cp[i] = deepCopyJSONValue(e)
+		}
+		return cp
+	default:
+		return val
+	}
+}
+
 // marshalJSON produces 2-space indented JSON with a trailing newline,
 // matching the on-disk config file format per spec.
 func marshalJSON(obj map[string]any) ([]byte, error) {

@@ -135,6 +135,19 @@ from:
 UNIFI_SYNC_SECRET_HOME_WIFI_X_PASSPHRASE=actualpassword
 ```
 
+WiFi networks with per-SSID keys — WPA2 Private Pre-Shared Keys
+(`private_preshared_keys`) or WPA3 SAE keys (`sae_psk`) — keep each key in an
+array, so its variable also includes the array field and the entry's zero-based
+position:
+
+```
+UNIFI_SYNC_SECRET_HOME_WIFI_PRIVATE_PRESHARED_KEYS_0_PASSWORD=firstkey
+UNIFI_SYNC_SECRET_HOME_WIFI_SAE_PSK_0_PSK=firstsaekey
+```
+
+The position must match the entry's order in the local file; if you reorder the
+array, update the variables to match.
+
 On diff, if a secret's effective value (from the environment) differs from the
 remote, it displays as `"__REDACTED__ (changed)"`.
 

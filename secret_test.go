@@ -303,11 +303,212 @@ func TestSecretEnvVarName(t *testing.T) {
 		{"corp-wifi", "x_radius_secret_1", "UNIFI_SYNC_SECRET_CORP_WIFI_X_RADIUS_SECRET_1"},
 		{"wifi-5ghz", "x_passphrase", "UNIFI_SYNC_SECRET_WIFI_5GHZ_X_PASSPHRASE"},
 		{"café-wifi", "x_passphrase", "UNIFI_SYNC_SECRET_CAF__E9___WIFI_X_PASSPHRASE"},
+		{"home-wifi", "private_preshared_keys_0_password", "UNIFI_SYNC_SECRET_HOME_WIFI_PRIVATE_PRESHARED_KEYS_0_PASSWORD"},
+		{"home-wifi", "sae_psk_2_psk", "UNIFI_SYNC_SECRET_HOME_WIFI_SAE_PSK_2_PSK"},
 	}
 	for _, tt := range tests {
 		got := secretEnvVar(tt.slug, tt.field)
 		if got != tt.want {
 			t.Errorf("secretEnvVar(%q, %q) = %q, want %q", tt.slug, tt.field, got, tt.want)
 		}
+	}
+}
+
+func nestedArray(t *testing.T, m map[string]any, field string) []any {
+	t.Helper()
+	arr, ok := m[field].([]any)
+	if !ok {
+		t.Fatalf("%s is not an array", field)
+	}
+	return arr
+}
+
+func nestedElem(t *testing.T, m map[string]any, field string, i int) map[string]any {
+	t.Helper()
+	elem, ok := nestedArray(t, m, field)[i].(map[string]any)
+	if !ok {
+		t.Fatalf("%s[%d] is not an object", field, i)
+	}
+	return elem
+}
+
+func ppsk(t *testing.T, m map[string]any, i int) map[string]any {
+	t.Helper()
+	return nestedElem(t, m, "private_preshared_keys", i)
+}
+
+func TestRedactSecretsNestedKeys(t *testing.T) {
+	obj := map[string]any{
+		"name": "Multi-PSK",
+		"private_preshared_keys": []any{
+			map[string]any{"networkconf_id": "net0", "password": "ppsk-secret-0"},
+			map[string]any{"networkconf_id": "", "password": "ppsk-secret-1"}, // blank id, still redacted
+		},
+		"sae_psk": []any{
+			map[string]any{"id": "sae0", "psk": "sae-secret-0", "vlan": "10"},
+		},
+	}
+	redactSecrets(obj, "wlanconf")
+
+	for i := range nestedArray(t, obj, "private_preshared_keys") {
+		if got := ppsk(t, obj, i)["password"]; got != redactedValue {
+			t.Errorf("private_preshared_keys[%d].password = %v, want redacted", i, got)
+		}
+	}
+	if ppsk(t, obj, 0)["networkconf_id"] != "net0" {
+		t.Error("networkconf_id (non-secret) was modified")
+	}
+	sae := nestedElem(t, obj, "sae_psk", 0)
+	if sae["psk"] != redactedValue {
+		t.Errorf("sae_psk[0].psk = %v, want redacted", sae["psk"])
+	}
+	if sae["vlan"] != "10" {
+		t.Error("sae_psk[0].vlan (non-secret) was modified")
+	}
+}
+
+func TestRedactSecretsNestedNonObjectElement(t *testing.T) {
+	// A non-object array entry is skipped without panicking; the object entry
+	// after it is still redacted.
+	obj := map[string]any{
+		"private_preshared_keys": []any{
+			"junk",
+			map[string]any{"password": "secret"},
+		},
+	}
+	redactSecrets(obj, "wlanconf")
+	if got := ppsk(t, obj, 1)["password"]; got != redactedValue {
+		t.Errorf("password = %v, want redacted", got)
+	}
+}
+
+func TestInjectSecretsNestedKeys(t *testing.T) {
+	obj := map[string]any{
+		"private_preshared_keys": []any{
+			map[string]any{"networkconf_id": "net0", "password": redactedValue},
+			map[string]any{"networkconf_id": "net1", "password": redactedValue},
+		},
+		"sae_psk": []any{
+			map[string]any{"id": "sae0", "psk": redactedValue},
+		},
+	}
+	t.Setenv("UNIFI_SYNC_SECRET_MULTI_PSK_PRIVATE_PRESHARED_KEYS_0_PASSWORD", "ppsk0")
+	t.Setenv("UNIFI_SYNC_SECRET_MULTI_PSK_PRIVATE_PRESHARED_KEYS_1_PASSWORD", "ppsk1")
+	t.Setenv("UNIFI_SYNC_SECRET_MULTI_PSK_SAE_PSK_0_PSK", "sae0pass")
+
+	if err := injectSecrets(obj, "wlanconf", "multi-psk"); err != nil {
+		t.Fatalf("injectSecrets() error = %v", err)
+	}
+	if got := ppsk(t, obj, 0)["password"]; got != "ppsk0" {
+		t.Errorf("private_preshared_keys[0].password = %v, want ppsk0", got)
+	}
+	if got := ppsk(t, obj, 1)["password"]; got != "ppsk1" {
+		t.Errorf("private_preshared_keys[1].password = %v, want ppsk1", got)
+	}
+	if got := nestedElem(t, obj, "sae_psk", 0)["psk"]; got != "sae0pass" {
+		t.Errorf("sae_psk[0].psk = %v, want sae0pass", got)
+	}
+}
+
+func TestInjectSecretsNestedMissingEnv(t *testing.T) {
+	obj := map[string]any{
+		"private_preshared_keys": []any{
+			map[string]any{"networkconf_id": "net0", "password": redactedValue},
+		},
+	}
+	// No env var set for index 0.
+	if err := injectSecrets(obj, "wlanconf", "multi-psk"); err == nil {
+		t.Error("injectSecrets() should error when a nested secret env var is missing")
+	}
+}
+
+func TestInjectSecretsNestedPlaintextPreserved(t *testing.T) {
+	obj := map[string]any{
+		"private_preshared_keys": []any{
+			map[string]any{"networkconf_id": "net0", "password": "already-plain"},
+		},
+	}
+	if err := injectSecrets(obj, "wlanconf", "multi-psk"); err != nil {
+		t.Fatalf("injectSecrets() error = %v", err)
+	}
+	if got := ppsk(t, obj, 0)["password"]; got != "already-plain" {
+		t.Errorf("password = %v, want already-plain (unchanged)", got)
+	}
+}
+
+func TestAnnotateSecretChangesNestedChanged(t *testing.T) {
+	local := map[string]any{
+		"private_preshared_keys": []any{
+			map[string]any{"networkconf_id": "net0", "password": redactedValue},
+		},
+	}
+	remote := map[string]any{
+		"private_preshared_keys": []any{
+			map[string]any{"networkconf_id": "net0", "password": "old-ppsk"},
+		},
+	}
+	t.Setenv("UNIFI_SYNC_SECRET_MULTI_PSK_PRIVATE_PRESHARED_KEYS_0_PASSWORD", "new-ppsk")
+
+	annotateSecretChanges(local, remote, "wlanconf", "multi-psk")
+	if got := ppsk(t, local, 0)["password"]; got != redactedValue+" (changed)" {
+		t.Errorf("local password = %v, want annotated changed", got)
+	}
+	if got := ppsk(t, remote, 0)["password"]; got != redactedValue {
+		t.Errorf("remote password = %v, want redacted", got)
+	}
+}
+
+func TestAnnotateSecretChangesNestedSame(t *testing.T) {
+	local := map[string]any{
+		"sae_psk": []any{map[string]any{"id": "s0", "psk": redactedValue}},
+	}
+	remote := map[string]any{
+		"sae_psk": []any{map[string]any{"id": "s0", "psk": "same"}},
+	}
+	t.Setenv("UNIFI_SYNC_SECRET_W_SAE_PSK_0_PSK", "same")
+
+	annotateSecretChanges(local, remote, "wlanconf", "w")
+	if got := nestedElem(t, local, "sae_psk", 0)["psk"]; got != redactedValue {
+		t.Errorf("local psk = %v, want plain redacted", got)
+	}
+}
+
+func TestAnnotateSecretChangesNestedRemoteOnly(t *testing.T) {
+	// A remote element with no local counterpart still gets its secret redacted.
+	local := map[string]any{"private_preshared_keys": []any{}}
+	remote := map[string]any{
+		"private_preshared_keys": []any{
+			map[string]any{"networkconf_id": "net0", "password": "remote-secret"},
+		},
+	}
+	annotateSecretChanges(local, remote, "wlanconf", "w")
+	if got := ppsk(t, remote, 0)["password"]; got != redactedValue {
+		t.Errorf("remote password = %v, want redacted", got)
+	}
+}
+
+func TestAnnotateSecretChangesNestedLocalNoRemoteMatch(t *testing.T) {
+	// A local element past the end of the remote array is redacted, not marked
+	// changed (there is nothing to compare against).
+	local := map[string]any{
+		"private_preshared_keys": []any{
+			map[string]any{"networkconf_id": "net0", "password": redactedValue},
+			map[string]any{"networkconf_id": "net1", "password": redactedValue},
+		},
+	}
+	remote := map[string]any{
+		"private_preshared_keys": []any{
+			map[string]any{"networkconf_id": "net0", "password": "r0"},
+		},
+	}
+	t.Setenv("UNIFI_SYNC_SECRET_W_PRIVATE_PRESHARED_KEYS_0_PASSWORD", "r0") // equals remote -> unchanged
+	t.Setenv("UNIFI_SYNC_SECRET_W_PRIVATE_PRESHARED_KEYS_1_PASSWORD", "x1") // no remote counterpart
+
+	annotateSecretChanges(local, remote, "wlanconf", "w")
+	if got := ppsk(t, local, 0)["password"]; got != redactedValue {
+		t.Errorf("local[0] password = %v, want plain redacted (matches remote)", got)
+	}
+	if got := ppsk(t, local, 1)["password"]; got != redactedValue {
+		t.Errorf("local[1] password = %v, want plain redacted (no remote counterpart)", got)
 	}
 }

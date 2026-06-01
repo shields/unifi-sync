@@ -167,3 +167,29 @@ func TestMarshalJSONPreservesNumbers(t *testing.T) {
 		t.Errorf("float not preserved: %s", got)
 	}
 }
+
+func TestDeepCopyJSONObjectIndependence(t *testing.T) {
+	orig := map[string]any{
+		"name": "x",
+		"num":  jsonNumber("5"),
+		"private_preshared_keys": []any{
+			map[string]any{"password": redactedValue},
+			"scalar-in-array",
+		},
+	}
+	cp := deepCopyJSONObject(orig)
+
+	// Mutating the copy's nested element must not reach the original.
+	nestedElem(t, cp, "private_preshared_keys", 0)["password"] = "leaked"
+	cp["name"] = "y"
+
+	if got := nestedElem(t, orig, "private_preshared_keys", 0)["password"]; got != redactedValue {
+		t.Errorf("original nested password mutated to %v", got)
+	}
+	if orig["name"] != "x" {
+		t.Errorf("original name mutated to %v", orig["name"])
+	}
+	if cp["num"] != jsonNumber("5") {
+		t.Errorf("copied num = %v, want jsonNumber(5)", cp["num"])
+	}
+}

@@ -48,7 +48,7 @@ The controller API returns resources wrapped in `{"meta":{...},"data":[...]}` en
 - **`run.go`** — CLI entry point: flag parsing, command dispatch, exit codes (0=success, 1=diff found, 2=error)
 - **`commands.go`** — `cmdPull`, `cmdPush`, `cmdDiff` orchestration
 - **`client.go`** — HTTP client with cookie-jar auth, CSRF token (thread-safe via RWMutex), TLS/proxy support
-- **`secret.go`** — Redacts secrets on pull, injects from env vars on push. Secret fields are hardcoded per resource type in `secretFields`: `wlanconf` WiFi secrets (`x_passphrase`, `x_iapp_key`, `x_wep`, …) and `networkconf` VPN/PPPoE/WireGuard secrets (`x_wan_password`, `x_ipsec_pre_shared_key`, `wireguard_client_preshared_key`, …). Public certs/keys (`x_ca_crt`, `x_dh_key`, …) are intentionally not redacted
+- **`secret.go`** — Redacts secrets on pull, injects from env vars on push. Secret fields are hardcoded per resource type in `resourceSecrets`: scalar `wlanconf` WiFi secrets (`x_passphrase`, `x_iapp_key`, `x_wep`, …) and `networkconf` VPN/PPPoE/WireGuard secrets (`x_wan_password`, `x_ipsec_pre_shared_key`, `wireguard_client_preshared_key`, …). Public certs/keys (`x_ca_crt`, `x_dh_key`, …) are intentionally not redacted. Per-SSID WiFi keys nested in arrays (`private_preshared_keys[].password`, `sae_psk[].psk`) are carried in each spec's `nested` list and keyed by array index in the env var (`..._PRIVATE_PRESHARED_KEYS_0_PASSWORD`). On push, the local object is deep-copied before secret injection so the on-disk file keeps `__REDACTED__`
 - **`diff.go`** — LCS-based line diff with ANSI color support
 - **`config.go`** — Reads/writes per-resource JSON files organized by type and slug
 - **`json.go`** — JSON helpers using `json.Number` to preserve numeric precision
