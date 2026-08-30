@@ -19,7 +19,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
-	"encoding/json"
+	"encoding/json/v2"
 	"fmt"
 	"io"
 	"net/http"
@@ -60,7 +60,7 @@ func drainBody(resp *http.Response) {
 }
 
 func (c *client) login(ctx context.Context, username, password string) error {
-	body, _ := json.Marshal(map[string]string{ //nolint:errcheck,errchkjson // map[string]string cannot fail to marshal
+	body, _ := json.Marshal(map[string]string{ //nolint:errcheck // map[string]string cannot fail to marshal
 		"username": username,
 		"password": password,
 	})

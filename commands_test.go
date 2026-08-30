@@ -17,7 +17,8 @@ package main
 import (
 	"bytes"
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"errors"
 	"io"
 	"net/http"
@@ -80,7 +81,7 @@ func testMux(responses map[string][]map[string]any) http.Handler {
 
 func TestCmdPull(t *testing.T) {
 	srv := httptest.NewServer(testMux(map[string][]map[string]any{
-		"/rest/networkconf": {{"_id": "n1", "name": testNameHomeNet, "vlan": json.Number("10")}},
+		"/rest/networkconf": {{"_id": "n1", "name": testNameHomeNet, "vlan": jsontext.Value("10")}},
 		"/rest/wlanconf":    {{"_id": "w1", "name": "Guest WiFi", "x_passphrase": "secret"}},
 		"/rest/usergroup":   {{"_id": "u1", "name": "Default"}},
 	}))
@@ -694,7 +695,7 @@ func TestCmdPushVerificationError(t *testing.T) {
 }
 
 func TestCmdDiffNoDifferences(t *testing.T) {
-	obj := map[string]any{"_id": "n1", "name": testNameHomeNet, "vlan": json.Number("10")}
+	obj := map[string]any{"_id": "n1", "name": testNameHomeNet, "vlan": jsontext.Value("10")}
 
 	srv := httptest.NewServer(testMux(map[string][]map[string]any{
 		"/rest/networkconf": {obj},
@@ -721,8 +722,8 @@ func TestCmdDiffNoDifferences(t *testing.T) {
 }
 
 func TestCmdDiffWithDifferences(t *testing.T) {
-	remote := map[string]any{"_id": "n1", "name": testNameHomeNet, "vlan": json.Number("10")}
-	local := map[string]any{"_id": "n1", "name": testNameHomeNet, "vlan": json.Number("20")}
+	remote := map[string]any{"_id": "n1", "name": testNameHomeNet, "vlan": jsontext.Value("10")}
+	local := map[string]any{"_id": "n1", "name": testNameHomeNet, "vlan": jsontext.Value("20")}
 
 	srv := httptest.NewServer(testMux(map[string][]map[string]any{
 		"/rest/networkconf": {remote},
@@ -872,8 +873,8 @@ func TestCmdDiffSlugCollision(t *testing.T) {
 }
 
 func TestCmdDiffColor(t *testing.T) {
-	remote := map[string]any{"_id": "n1", "name": testNameHomeNet, "vlan": json.Number("10")}
-	local := map[string]any{"_id": "n1", "name": testNameHomeNet, "vlan": json.Number("20")}
+	remote := map[string]any{"_id": "n1", "name": testNameHomeNet, "vlan": jsontext.Value("10")}
+	local := map[string]any{"_id": "n1", "name": testNameHomeNet, "vlan": jsontext.Value("20")}
 
 	srv := httptest.NewServer(testMux(map[string][]map[string]any{
 		"/rest/networkconf": {remote},

@@ -16,7 +16,8 @@ package main
 
 import (
 	"bytes"
-	"encoding/json"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -338,14 +339,14 @@ func TestRunDiffNoDifferences(t *testing.T) {
 
 func TestRunDiffWithDifferences(t *testing.T) {
 	srv := httptest.NewServer(loginMux(map[string][]map[string]any{
-		"/rest/networkconf": {{"_id": "n1", "name": testNameHomeNet, "vlan": json.Number("10")}},
+		"/rest/networkconf": {{"_id": "n1", "name": testNameHomeNet, "vlan": jsontext.Value("10")}},
 	}))
 	defer srv.Close()
 
 	setRequiredEnv(t, srv.URL)
 	dir := t.TempDir()
 	if err := writeConfigFile(dir, "networkconf", "homenet", map[string]any{
-		"_id": "n1", "name": testNameHomeNet, "vlan": json.Number("20"),
+		"_id": "n1", "name": testNameHomeNet, "vlan": jsontext.Value("20"),
 	}); err != nil {
 		t.Fatalf("writeConfigFile: %v", err)
 	}
@@ -375,14 +376,14 @@ func TestRunDiffError(t *testing.T) {
 func diffOutputHasANSI(t *testing.T) bool {
 	t.Helper()
 	srv := httptest.NewServer(loginMux(map[string][]map[string]any{
-		"/rest/networkconf": {{"_id": "n1", "name": testNameHomeNet, "vlan": json.Number("10")}},
+		"/rest/networkconf": {{"_id": "n1", "name": testNameHomeNet, "vlan": jsontext.Value("10")}},
 	}))
 	defer srv.Close()
 
 	setRequiredEnv(t, srv.URL)
 	dir := t.TempDir()
 	if err := writeConfigFile(dir, "networkconf", "homenet", map[string]any{
-		"_id": "n1", "name": testNameHomeNet, "vlan": json.Number("20"),
+		"_id": "n1", "name": testNameHomeNet, "vlan": jsontext.Value("20"),
 	}); err != nil {
 		t.Fatalf("writeConfigFile: %v", err)
 	}

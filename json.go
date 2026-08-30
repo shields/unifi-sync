@@ -15,23 +15,26 @@
 package main
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"errors"
 	"fmt"
 	"io"
 )
 
-type jsonNumber = json.Number
+var preserveJSONNumbers = json.WithUnmarshalers(
+	json.UnmarshalFromFunc(func(dec *jsontext.Decoder, value *any) error {
+		if dec.PeekKind() == '0' {
+			*value = jsontext.Value(nil)
+		}
+		return errors.ErrUnsupported
+	}),
+)
 
 func decodeJSON(r io.Reader) (map[string]any, error) {
-	dec := json.NewDecoder(r)
-	dec.UseNumber()
 	var obj map[string]any
-	if err := dec.Decode(&obj); err != nil {
+	if err := json.UnmarshalRead(r, &obj, preserveJSONNumbers); err != nil {
 		return nil, err
-	}
-	if dec.More() {
-		return nil, errors.New("unexpected trailing data after JSON object")
 	}
 	return obj, nil
 }
@@ -39,14 +42,9 @@ func decodeJSON(r io.Reader) (map[string]any, error) {
 // decodeDataEnvelope decodes a UniFi API response envelope {"meta":...,"data":[...]}
 // and returns the data array as a slice of objects.
 func decodeDataEnvelope(r io.Reader) ([]map[string]any, error) {
-	dec := json.NewDecoder(r)
-	dec.UseNumber()
 	var envelope map[string]any
-	if err := dec.Decode(&envelope); err != nil {
+	if err := json.UnmarshalRead(r, &envelope, preserveJSONNumbers); err != nil {
 		return nil, err
-	}
-	if dec.More() {
-		return nil, errors.New("unexpected trailing data after JSON object")
 	}
 	// The controller signals API-level failures via meta.rc, often with an
 	// HTTP 200 status, so surface them rather than treating the response as
@@ -91,9 +89,8 @@ func deepCopyJSONObject(obj map[string]any) map[string]any {
 	return cp
 }
 
-// deepCopyJSONValue deep-copies a value decoded from JSON. Maps and slices are
-// copied recursively; scalars (string, bool, json.Number, nil) are immutable and
-// returned as-is.
+// deepCopyJSONValue deep-copies a value decoded from JSON. Maps, slices, and
+// raw JSON numbers are copied; immutable scalars are returned as-is.
 func deepCopyJSONValue(v any) any {
 	switch val := v.(type) {
 	case map[string]any:
@@ -104,6 +101,8 @@ func deepCopyJSONValue(v any) any {
 			cp[i] = deepCopyJSONValue(e)
 		}
 		return cp
+	case jsontext.Value:
+		return val.Clone()
 	default:
 		return val
 	}
@@ -112,7 +111,7 @@ func deepCopyJSONValue(v any) any {
 // marshalJSON produces 2-space indented JSON with a trailing newline,
 // matching the on-disk config file format per spec.
 func marshalJSON(obj map[string]any) ([]byte, error) {
-	data, err := json.MarshalIndent(obj, "", "  ")
+	data, err := json.Marshal(obj, json.Deterministic(true), jsontext.WithIndent("  "))
 	if err != nil {
 		return nil, err
 	}

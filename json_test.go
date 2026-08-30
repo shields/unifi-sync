@@ -15,6 +15,7 @@
 package main
 
 import (
+	"encoding/json/jsontext"
 	"math"
 	"strings"
 	"testing"
@@ -29,10 +30,10 @@ func TestDecodeJSON(t *testing.T) {
 	if obj["name"] != "HomeNet" {
 		t.Errorf("name = %v, want HomeNet", obj["name"])
 	}
-	// UseNumber preserves integers as json.Number
-	vlan, ok := obj["vlan"].(jsonNumber)
+	// The custom unmarshaler preserves numbers as raw JSON values.
+	vlan, ok := obj["vlan"].(jsontext.Value)
 	if !ok {
-		t.Fatalf("vlan type = %T, want json.Number", obj["vlan"])
+		t.Fatalf("vlan type = %T, want jsontext.Value", obj["vlan"])
 	}
 	if vlan.String() != "100" {
 		t.Errorf("vlan = %s, want 100", vlan)
@@ -171,7 +172,7 @@ func TestMarshalJSONPreservesNumbers(t *testing.T) {
 func TestDeepCopyJSONObjectIndependence(t *testing.T) {
 	orig := map[string]any{
 		"name": "x",
-		"num":  jsonNumber("5"),
+		"num":  jsontext.Value("5"),
 		"private_preshared_keys": []any{
 			map[string]any{"password": redactedValue},
 			"scalar-in-array",
@@ -189,7 +190,8 @@ func TestDeepCopyJSONObjectIndependence(t *testing.T) {
 	if orig["name"] != "x" {
 		t.Errorf("original name mutated to %v", orig["name"])
 	}
-	if cp["num"] != jsonNumber("5") {
-		t.Errorf("copied num = %v, want jsonNumber(5)", cp["num"])
+	copiedNumber, ok := cp["num"].(jsontext.Value)
+	if !ok || copiedNumber.String() != "5" {
+		t.Errorf("copied num = %v, want jsontext.Value(5)", cp["num"])
 	}
 }
