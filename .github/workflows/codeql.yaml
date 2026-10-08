@@ -30,7 +30,7 @@ jobs:
     # Skip duplicate pull_request runs for same-repo PRs; push already covers them.
     # Forks can't trigger push, so they still need pull_request.
     if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     permissions:
       contents: read
       security-events: write
