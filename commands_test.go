@@ -264,10 +264,11 @@ func TestCmdPushUpdate(t *testing.T) {
 	defer srv.Close()
 
 	dir := t.TempDir()
-	if err := writeConfigFile(dir, "networkconf", "homenet", map[string]any{
+	writeErr := writeConfigFile(dir, "networkconf", "homenet", map[string]any{
 		"_id": "abc123", "name": testNameHomeNet,
-	}); err != nil {
-		t.Fatalf("writeConfigFile: %v", err)
+	})
+	if writeErr != nil {
+		t.Fatalf("writeConfigFile: %v", writeErr)
 	}
 
 	c := newClient(srv.URL, false)
@@ -303,10 +304,11 @@ func TestCmdPushCreate(t *testing.T) {
 	defer srv.Close()
 
 	dir := t.TempDir()
-	if err := writeConfigFile(dir, "networkconf", "homenet", map[string]any{
+	writeErr := writeConfigFile(dir, "networkconf", "homenet", map[string]any{
 		"name": testNameHomeNet,
-	}); err != nil {
-		t.Fatalf("writeConfigFile: %v", err)
+	})
+	if writeErr != nil {
+		t.Fatalf("writeConfigFile: %v", writeErr)
 	}
 
 	c := newClient(srv.URL, false)
@@ -342,10 +344,11 @@ func TestCmdPushCreatePreservesRedacted(t *testing.T) {
 	defer srv.Close()
 
 	dir := t.TempDir()
-	if err := writeConfigFile(dir, "wlanconf", "guest-wifi", map[string]any{
+	writeErr := writeConfigFile(dir, "wlanconf", "guest-wifi", map[string]any{
 		"name": "Guest WiFi", "x_passphrase": redactedValue,
-	}); err != nil {
-		t.Fatalf("writeConfigFile: %v", err)
+	})
+	if writeErr != nil {
+		t.Fatalf("writeConfigFile: %v", writeErr)
 	}
 	t.Setenv("UNIFI_SYNC_SECRET_GUEST_WIFI_X_PASSPHRASE", "mypass")
 
@@ -375,13 +378,14 @@ func TestCmdPushCreatePreservesRedactedNested(t *testing.T) {
 	defer srv.Close()
 
 	dir := t.TempDir()
-	if err := writeConfigFile(dir, "wlanconf", "guest-wifi", map[string]any{
+	writeErr := writeConfigFile(dir, "wlanconf", "guest-wifi", map[string]any{
 		"name": "Guest WiFi",
 		"private_preshared_keys": []any{
 			map[string]any{"networkconf_id": "net0", "password": redactedValue},
 		},
-	}); err != nil {
-		t.Fatalf("writeConfigFile: %v", err)
+	})
+	if writeErr != nil {
+		t.Fatalf("writeConfigFile: %v", writeErr)
 	}
 	t.Setenv("UNIFI_SYNC_SECRET_GUEST_WIFI_PRIVATE_PRESHARED_KEYS_0_PASSWORD", "realpass")
 
@@ -433,10 +437,11 @@ func TestCmdPushDryRunUpdate(t *testing.T) {
 	defer srv.Close()
 
 	dir := t.TempDir()
-	if err := writeConfigFile(dir, "networkconf", "homenet", map[string]any{
+	writeErr := writeConfigFile(dir, "networkconf", "homenet", map[string]any{
 		"_id": "abc123", "name": testNameHomeNet,
-	}); err != nil {
-		t.Fatalf("writeConfigFile: %v", err)
+	})
+	if writeErr != nil {
+		t.Fatalf("writeConfigFile: %v", writeErr)
 	}
 
 	c := newClient(srv.URL, false)
@@ -464,10 +469,11 @@ func TestCmdPushDryRunCreate(t *testing.T) {
 	defer srv.Close()
 
 	dir := t.TempDir()
-	if err := writeConfigFile(dir, "networkconf", "homenet", map[string]any{
+	writeErr := writeConfigFile(dir, "networkconf", "homenet", map[string]any{
 		"name": testNameHomeNet,
-	}); err != nil {
-		t.Fatalf("writeConfigFile: %v", err)
+	})
+	if writeErr != nil {
+		t.Fatalf("writeConfigFile: %v", writeErr)
 	}
 
 	c := newClient(srv.URL, false)
@@ -503,10 +509,11 @@ func TestCmdPushInjectSecrets(t *testing.T) {
 	defer srv.Close()
 
 	dir := t.TempDir()
-	if err := writeConfigFile(dir, "wlanconf", "guest-wifi", map[string]any{
+	writeErr := writeConfigFile(dir, "wlanconf", "guest-wifi", map[string]any{
 		"_id": "w1", "name": "Guest WiFi", "x_passphrase": redactedValue,
-	}); err != nil {
-		t.Fatalf("writeConfigFile: %v", err)
+	})
+	if writeErr != nil {
+		t.Fatalf("writeConfigFile: %v", writeErr)
 	}
 
 	t.Setenv("UNIFI_SYNC_SECRET_GUEST_WIFI_X_PASSPHRASE", "mysecretpass")
@@ -523,10 +530,11 @@ func TestCmdPushInjectSecrets(t *testing.T) {
 
 func TestCmdPushMissingSecret(t *testing.T) {
 	dir := t.TempDir()
-	if err := writeConfigFile(dir, "wlanconf", "guest-wifi", map[string]any{
+	writeErr := writeConfigFile(dir, "wlanconf", "guest-wifi", map[string]any{
 		"_id": "w1", "name": "Guest WiFi", "x_passphrase": redactedValue,
-	}); err != nil {
-		t.Fatalf("writeConfigFile: %v", err)
+	})
+	if writeErr != nil {
+		t.Fatalf("writeConfigFile: %v", writeErr)
 	}
 
 	c := newClient("http://example.com", false)
@@ -544,10 +552,11 @@ func TestCmdPushPutError(t *testing.T) {
 	defer srv.Close()
 
 	dir := t.TempDir()
-	if err := writeConfigFile(dir, "networkconf", "homenet", map[string]any{
+	writeErr := writeConfigFile(dir, "networkconf", "homenet", map[string]any{
 		"_id": "abc123", "name": testNameHomeNet,
-	}); err != nil {
-		t.Fatalf("writeConfigFile: %v", err)
+	})
+	if writeErr != nil {
+		t.Fatalf("writeConfigFile: %v", writeErr)
 	}
 
 	c := newClient(srv.URL, false)
@@ -565,10 +574,11 @@ func TestCmdPushPostError(t *testing.T) {
 	defer srv.Close()
 
 	dir := t.TempDir()
-	if err := writeConfigFile(dir, "networkconf", "homenet", map[string]any{
+	writeErr := writeConfigFile(dir, "networkconf", "homenet", map[string]any{
 		"name": testNameHomeNet,
-	}); err != nil {
-		t.Fatalf("writeConfigFile: %v", err)
+	})
+	if writeErr != nil {
+		t.Fatalf("writeConfigFile: %v", writeErr)
 	}
 
 	c := newClient(srv.URL, false)
@@ -639,10 +649,11 @@ func TestCmdPushVerificationDiffs(t *testing.T) {
 	defer srv.Close()
 
 	dir := t.TempDir()
-	if err := writeConfigFile(dir, "networkconf", "homenet", map[string]any{
+	writeErr := writeConfigFile(dir, "networkconf", "homenet", map[string]any{
 		"_id": "abc123", "name": testNameHomeNet,
-	}); err != nil {
-		t.Fatalf("writeConfigFile: %v", err)
+	})
+	if writeErr != nil {
+		t.Fatalf("writeConfigFile: %v", writeErr)
 	}
 
 	c := newClient(srv.URL, false)
@@ -678,10 +689,11 @@ func TestCmdPushVerificationError(t *testing.T) {
 	defer srv.Close()
 
 	dir := t.TempDir()
-	if err := writeConfigFile(dir, "networkconf", "homenet", map[string]any{
+	writeErr := writeConfigFile(dir, "networkconf", "homenet", map[string]any{
 		"_id": "abc123", "name": testNameHomeNet,
-	}); err != nil {
-		t.Fatalf("writeConfigFile: %v", err)
+	})
+	if writeErr != nil {
+		t.Fatalf("writeConfigFile: %v", writeErr)
 	}
 
 	c := newClient(srv.URL, false)
@@ -757,10 +769,11 @@ func TestCmdDiffLocalOnly(t *testing.T) {
 	defer srv.Close()
 
 	dir := t.TempDir()
-	if err := writeConfigFile(dir, "networkconf", "homenet", map[string]any{
+	writeErr := writeConfigFile(dir, "networkconf", "homenet", map[string]any{
 		"_id": "n1", "name": testNameHomeNet,
-	}); err != nil {
-		t.Fatalf("writeConfigFile: %v", err)
+	})
+	if writeErr != nil {
+		t.Fatalf("writeConfigFile: %v", writeErr)
 	}
 
 	c := newClient(srv.URL, false)

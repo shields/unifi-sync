@@ -238,10 +238,11 @@ func TestRunPush(t *testing.T) {
 
 	setRequiredEnv(t, srv.URL)
 	dir := t.TempDir()
-	if err := writeConfigFile(dir, "networkconf", "homenet", map[string]any{
+	writeErr := writeConfigFile(dir, "networkconf", "homenet", map[string]any{
 		"_id": "abc123", "name": testNameHomeNet,
-	}); err != nil {
-		t.Fatalf("writeConfigFile: %v", err)
+	})
+	if writeErr != nil {
+		t.Fatalf("writeConfigFile: %v", writeErr)
 	}
 
 	var stdout, stderr bytes.Buffer
@@ -264,10 +265,11 @@ func TestRunPushDryRun(t *testing.T) {
 
 	setRequiredEnv(t, srv.URL)
 	dir := t.TempDir()
-	if err := writeConfigFile(dir, "networkconf", "homenet", map[string]any{
+	writeErr := writeConfigFile(dir, "networkconf", "homenet", map[string]any{
 		"_id": "abc123", "name": testNameHomeNet,
-	}); err != nil {
-		t.Fatalf("writeConfigFile: %v", err)
+	})
+	if writeErr != nil {
+		t.Fatalf("writeConfigFile: %v", writeErr)
 	}
 
 	var stdout, stderr bytes.Buffer
@@ -301,10 +303,11 @@ func TestRunPushVerificationDiffs(t *testing.T) {
 
 	setRequiredEnv(t, srv.URL)
 	dir := t.TempDir()
-	if err := writeConfigFile(dir, "networkconf", "homenet", map[string]any{
+	writeErr := writeConfigFile(dir, "networkconf", "homenet", map[string]any{
 		"_id": "abc123", "name": testNameHomeNet,
-	}); err != nil {
-		t.Fatalf("writeConfigFile: %v", err)
+	})
+	if writeErr != nil {
+		t.Fatalf("writeConfigFile: %v", writeErr)
 	}
 
 	var stdout, stderr bytes.Buffer
@@ -345,10 +348,11 @@ func TestRunDiffWithDifferences(t *testing.T) {
 
 	setRequiredEnv(t, srv.URL)
 	dir := t.TempDir()
-	if err := writeConfigFile(dir, "networkconf", "homenet", map[string]any{
+	writeErr := writeConfigFile(dir, "networkconf", "homenet", map[string]any{
 		"_id": "n1", "name": testNameHomeNet, "vlan": jsontext.Value("20"),
-	}); err != nil {
-		t.Fatalf("writeConfigFile: %v", err)
+	})
+	if writeErr != nil {
+		t.Fatalf("writeConfigFile: %v", writeErr)
 	}
 
 	var stdout, stderr bytes.Buffer
@@ -382,10 +386,11 @@ func diffOutputHasANSI(t *testing.T) bool {
 
 	setRequiredEnv(t, srv.URL)
 	dir := t.TempDir()
-	if err := writeConfigFile(dir, "networkconf", "homenet", map[string]any{
+	writeErr := writeConfigFile(dir, "networkconf", "homenet", map[string]any{
 		"_id": "n1", "name": testNameHomeNet, "vlan": jsontext.Value("20"),
-	}); err != nil {
-		t.Fatalf("writeConfigFile: %v", err)
+	})
+	if writeErr != nil {
+		t.Fatalf("writeConfigFile: %v", writeErr)
 	}
 
 	var stdout, stderr bytes.Buffer
