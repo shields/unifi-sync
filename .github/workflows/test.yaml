@@ -16,10 +16,12 @@ name: Test
 
 on:
   push:
+    branches:
+      - "**"
   pull_request:
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.head_ref || github.ref_name }}
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 permissions:
@@ -29,14 +31,15 @@ jobs:
   test:
     # Skip duplicate pull_request runs for same-repo PRs; push already covers them.
     # Forks can't trigger push, so they still need pull_request.
-    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
     runs-on: ubuntu-26.04
 
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Set up Go
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        uses: actions/setup-go@v7.0.0
         with:
           go-version-file: "go.mod"
           cache: true
@@ -46,3 +49,4 @@ jobs:
 
       - name: Run tests
         run: make test
+    name: test

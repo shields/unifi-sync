@@ -48,19 +48,16 @@ build:
 test:
 	@echo "==> Running tests..."
 	$(GOCMD) test -race -coverprofile=$(COVERAGE_FILE) ./...
-	@coverage=$$($(GOCMD) tool cover -func=$(COVERAGE_FILE) | grep total | awk '{print $$3}'); \
-	echo "Coverage: $$coverage"; \
-	if [ "$$coverage" != "100.0%" ]; then \
-		echo "FAIL: coverage is $$coverage, want 100.0%"; \
-		exit 1; \
-	fi
+	@LC_ALL=C awk 'NR>1{t+=$$2;if($$3>0)c+=$$2} \
+	  END{printf "Coverage: %.1f%%\n",(t>0?100*c/t:0); \
+	  if(c!=t){print "FAIL: coverage is not 100.0%";exit 1}}' $(COVERAGE_FILE)
 
 coverage-html: test
 	@echo "==> Generating HTML coverage report..."
 	$(GOCMD) tool cover -html=$(COVERAGE_FILE) -o $(COVERAGE_HTML)
 	@echo "Coverage report generated at $(COVERAGE_HTML)"
 
-lint:
+lint: actions-lock-verify-local
 	@echo "==> Running golangci-lint..."
 	$(GOCMD) tool golangci-lint run ./...
 
@@ -84,3 +81,17 @@ dev: fmt lint test build
 check: deps fmt lint test
 
 pre-commit: fmt lint test
+
+.PHONY: actions-lock-install actions-lock actions-lock-verify-local actions-lock-verify
+
+actions-lock-install:
+	gh extension install github/gh-actions-lock --pin v0.4.1 --force
+
+actions-lock:
+	gh actions-lock --no-interactive
+
+actions-lock-verify-local:
+	gh actions-lock --verify-local
+
+actions-lock-verify:
+	gh actions-lock --verify
